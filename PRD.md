@@ -1,55 +1,66 @@
-# Podcast Feed Processor - Phase 1 PRD
+# Podcast Feed Processor - PRD
 
 ## Overview
 
-The Podcast Feed Processor is a lean application designed to ingest a private podcast RSS feed, parse the episode details, and store the data for future search and analysis. Phase 1 focuses on building a solid foundation by fetching the feed, extracting key information (title, description, link, published date, etc.), and storing it in a local SQLite database.
+The Podcast Feed Processor is a lean application designed to ingest a private podcast RSS feed, parse the episode details, and store the data for future search and analysis. The application focuses on performance, reliability, and maintainability, successfully handling feeds with hundreds of episodes.
 
 ## Objectives
 
 - **Data Ingestion:** Securely fetch a private RSS feed using HTTP requests with appropriate authentication.
-- **Data Parsing:** Extract episode metadata (title, description, link, published date) using robust XML parsing.
-- **Data Storage:** Persist the parsed data in a SQLite database for efficient retrieval and later processing.
-- **Modular Architecture:** Develop a clean and modular codebase that can be extended for additional features in later phases.
+- **Data Parsing:** Extract episode metadata using robust XML parsing with `lxml`.
+- **Data Storage:** Persist the parsed data in a SQLite database with efficient indexing.
+- **Modular Architecture:** Clean, tested, and documented codebase with comprehensive test coverage.
 
 ## User Stories
 
 - **As a user,** I want to run a script that automatically downloads and parses my private podcast RSS feed so that I have a local copy of all episode details.
-- **As a user,** I need the tool to securely handle authentication for the private RSS feed.
-- **As a user,** I want the parsed episode data to be stored in a structured format (SQLite database) for future search and categorization.
+- **As a user,** I need the tool to handle private feed URLs with embedded authentication.
+- **As a user,** I want the parsed episode data to be stored efficiently for future search and categorization.
+- **As a user,** I want to see the latest episodes after each update.
 
 ## Requirements
 
 ### Functional Requirements
 
 1. **RSS Feed Ingestion:**
-   - Fetch the private RSS feed using an HTTP GET request.
-   - Handle authentication via HTTP headers (e.g., Bearer token).
+   - Fetch private RSS feed using HTTP GET request
+   - Handle authentication via URL tokens
+   - Support timeout and error handling
+   - Performance: ~1.0s for feed fetch
+
 2. **RSS Parsing:**
-   - Parse the XML feed using lxml for robust XML handling.
-   - Extract at least the following fields from each episode:
-     - Title
-     - Description
-     - Link
-     - Published date
+   - Parse XML feed using `lxml` for robust handling
+   - Support iTunes podcast namespace fields
+   - Extract fields:
+     - Required: title, description, guid, published_date
+     - Optional: link, duration, audio_url
+   - Performance: ~0.03s for 729 episodes
+
 3. **Data Storage:**
-   - Initialize and connect to a SQLite database.
-   - Create an `episodes` table if it does not exist.
-   - Insert the parsed episode data into the database.
+   - SQLite database with proper indexes
+   - Efficient batch episode storage
+   - Automatic duplicate handling via GUID
+   - Performance: ~0.01s for 729 episodes
+
 4. **Configuration:**
-   - Use environment variables (with a `.env` file) for configurable parameters such as the RSS feed URL and authentication token.
+   - Environment variables via `.env` file
+   - Feed URL configuration
+   - Database path management
+   - Validation of required settings
 
 ### Non-Functional Requirements
 
-- **Modularity:** Ensure the codebase is modular to facilitate later enhancements (e.g., adding NLP features or a web interface).
-- **Error Handling:** Implement robust error handling and logging for network issues, parsing errors, and database failures.
-- **Documentation:** Provide clear inline documentation and update the README with setup and usage instructions.
-- **Security:** Securely manage sensitive data such as authentication tokens by using environment variables.
+- **Performance:** Process 729 episodes in ~1.1 seconds total
+- **Modularity:** Clean separation between feed ingestion, parsing, and storage
+- **Error Handling:** Comprehensive error handling with logging
+- **Documentation:** Detailed inline documentation and usage examples
+- **Testing:** Unit tests, integration tests, and mock feed testing
 
 ## Architecture & Design
 
 ### Folder Structure
 
-Below is the recommended folder structure for the project:
+```
 podcast_feed_processor/
 ├── README.md
 ├── requirements.txt
@@ -58,93 +69,127 @@ podcast_feed_processor/
 │   └── episodes.db
 ├── src/
 │   ├── __init__.py
-│   ├── config.py
-│   ├── feed_ingest.py
-│   ├── storage.py
-│   └── main.py
+│   ├── config.py      # Configuration management
+│   ├── feed_ingest.py # Feed fetching and parsing
+│   ├── models.py      # Data models
+│   ├── storage.py     # Database operations
+│   └── main.py        # Main orchestration
 └── tests/
+    ├── __init__.py
+    ├── conftest.py    # Test fixtures
+    ├── test_config.py
+    ├── test_feed_ingest.py
+    ├── test_storage.py
+    └── test_integration.py
+```
 
 ### Technology Stack
 
-- **Programming Language:** Python
-- **Libraries/Modules:**
-  - `requests` for HTTP requests.
-  - `lxml` for XML parsing.
-  - `python-dotenv` for loading environment variables.
-  - Built-in `sqlite3` for database operations.
-  - Python's `logging` for error and event logging.
+- **Programming Language:** Python 3.13
+- **Libraries:**
+  - `requests` for HTTP requests
+  - `lxml` for XML parsing
+  - `python-dotenv` for configuration
+  - `sqlite3` for database operations
+  - `pytest` for testing
+  - `requests-mock` for test mocking
 
 ### Key Modules and Their Roles
 
 1. **src/config.py**
-   - Loads configuration settings (e.g., RSS_FEED_URL) from environment variables.
+   - Environment variable management
+   - Path configuration
+   - Validation logic
+
 2. **src/feed_ingest.py**
-   - Contains functions to fetch the RSS feed and parse its content using `lxml`.
-   - Provides functions like `fetch_rss_feed()` and `parse_rss_feed(feed_content)`.
-3. **src/storage.py**
-   - Manages SQLite database connection, table creation, and data insertion.
-   - Functions include `init_db()` to create the episodes table and `store_episodes(episodes)` to insert records.
-4. **src/main.py**
-   - Serves as the orchestrator: initializes the database, calls the feed ingestion functions, and stores parsed data.
+   - Feed fetching with error handling
+   - XML parsing with `lxml`
+   - iTunes namespace support
 
-## Workflow
+3. **src/models.py**
+   - Episode dataclass
+   - Field validation
+   - Type hints
 
-1. **Database Initialization:**
-   - On script startup, connect to the SQLite database and ensure the `episodes` table exists.
-2. **Feed Fetching:**
-   - Use the `requests` library to GET the RSS feed URL with the necessary authentication header.
-   - Handle any network or authentication errors gracefully.
-3. **Feed Parsing:**
-   - Parse the downloaded XML feed with `lxml`.
-   - Extract required fields from each entry in the feed.
-4. **Data Storage:**
-   - Insert each parsed episode into the SQLite database.
-   - Ensure proper error handling and logging during database operations.
+4. **src/storage.py**
+   - SQLite connection management
+   - Efficient batch operations
+   - Transaction handling
 
-## Deliverables
+5. **src/main.py**
+   - Process orchestration
+   - Performance logging
+   - Error handling
 
-- **Source Code:**  
-  A fully functional Python codebase following the specified folder structure.
-- **Documentation:**  
-  A README with setup instructions, environment configuration details, and usage examples.
-- **Database File:**  
-  A SQLite database file (e.g., `data/episodes.db`) containing the parsed episodes.
-- **Tests:**  
-  Unit tests for the key functions in `feed_ingest.py` and `storage.py`.
+## Implementation Details
 
-## Future Considerations
+### Database Schema
 
-- **Logging:**  
-  Integrate Python's `logging` module for enhanced error reporting and debugging.
-- **Testing:**  
-  Write unit tests to cover each module's functionality.
-- **Extensibility:**  
-  Plan for future phases (e.g., search functionality, NLP enrichment, web interface, and ChatGPT integration).
-- **Security Enhancements:**  
-  Ensure the `.env` file is excluded from version control and consider secure vault solutions if needed.
+```sql
+CREATE TABLE episodes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guid TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    link TEXT NOT NULL,
+    published_date TIMESTAMP NOT NULL,
+    duration TEXT,
+    audio_url TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
-## Instructions for the AI Coding Companion
+CREATE INDEX idx_episodes_guid ON episodes(guid);
+CREATE INDEX idx_episodes_published_date ON episodes(published_date);
+```
 
-1. **Initialize the Project:**
-   - Create the folder structure as defined.
-   - Set up a Python virtual environment and install dependencies from `requirements.txt`.
-2. **Implement Configurations:**
-   - Write `src/config.py` to load environment variables.
-3. **Develop the Ingestion Module:**
-   - Implement `fetch_rss_feed()` in `src/feed_ingest.py` to fetch the RSS feed.
-   - Implement `parse_rss_feed(feed_content)` to extract episode metadata.
-4. **Implement the Storage Module:**
-   - Develop `init_db()` and `store_episodes(episodes)` in `src/storage.py` to handle SQLite database operations.
-5. **Integrate with Main Script:**
-   - Write `src/main.py` to tie together fetching, parsing, and storing functions.
-6. **Documentation and Testing:**
-   - Update README.md with usage instructions.
-   - Develop unit tests under the `tests/` directory.
+### Performance Metrics
 
-## Useful URLs for Reference
+Measured with 729 episodes:
+- Feed Fetch: ~1.0 seconds
+- XML Parse: ~0.03 seconds
+- DB Storage: ~0.01 seconds
+- Total Time: ~1.1 seconds
 
-- [lxml Documentation](https://lxml.de/)
-- [Requests Library Documentation](https://docs.python-requests.org/)
-- [SQLite3 Documentation](https://docs.python.org/3/library/sqlite3.html)
-- [python-dotenv Documentation](https://pypi.org/project/python-dotenv/)
-- [Logging in Python](https://docs.python.org/3/library/logging.html)
+### Error Handling
+
+- Network timeouts and retries
+- XML parsing recovery
+- Database transaction rollback
+- Comprehensive logging
+
+### Testing Strategy
+
+1. **Unit Tests:**
+   - Individual component testing
+   - Mock external dependencies
+
+2. **Integration Tests:**
+   - End-to-end workflow testing
+   - Mock feed with 729 episodes
+   - Database operations
+
+3. **Performance Tests:**
+   - Timing measurements
+   - Resource usage monitoring
+
+## Deployment
+
+### Requirements
+
+- Python 3.13+
+- Virtual environment
+- `.env` file with feed URL
+- Write access for database
+
+### Monitoring
+
+- Logging to stdout/stderr
+- Performance metrics logging
+- Error tracking
+
+### Maintenance
+
+- Database backups
+- Log rotation
+- VACUUM optimization
