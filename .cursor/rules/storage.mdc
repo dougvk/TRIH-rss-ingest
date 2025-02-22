@@ -1,0 +1,25 @@
+---
+description: Rules for implementing data storage logic in storage.py
+globs: src/storage.py
+---
+# Data Storage Rules
+
+1. **Database Initialization**  
+   - Use SQLite’s built-in module (`sqlite3`).
+   - On module load or first function call, ensure the `episodes` table exists.
+
+2. **Table Schema**  
+   - Store fields: `id (PRIMARY KEY)`, `title`, `description`, `link`, `published`.
+   - If additional columns are needed, keep them consistent across the codebase.
+
+3. **Connection Management**  
+   - Open a connection using `sqlite3.connect(db_path)`.
+   - Use context managers or ensure connections/cursors are properly closed.
+
+4. **Data Insertion**  
+   - Insert episodes in a batch where possible.
+   - Handle unique constraints (if any) gracefully (e.g., ignore duplicates based on `link`).
+
+5. **Error Handling**  
+   - Log database errors and raise exceptions only if the operation can’t recover.
+   - If partial inserts fail, provide a rollback or handle the state appropriately.

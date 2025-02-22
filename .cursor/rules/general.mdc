@@ -1,0 +1,70 @@
+---
+description: General coding standards, config usage, and testing guidelines for the RSS feed parser
+globs: src/**/*.py, tests/**/*.py, src/config.py
+---
+# General, Config, and Testing Rules
+
+## 1. General Coding Standards
+
+- **Code Style & Linting**  
+  - Follow PEP 8 style guidelines (indentation, naming, etc.).
+  - Use descriptive variable names; avoid single-letter variables except for counters (e.g., `i`, `j`).
+  
+- **Modularity**  
+  - Keep functions small and focused.
+  - If a function grows too large, refactor into smaller, reusable components.
+
+- **Error Handling**  
+  - Use Python exceptions (try/except) to handle network calls, file I/O, or DB writes.
+  - Log errors with helpful context messages (e.g., which feed URL was being processed).
+
+- **Logging**  
+  - Use Python’s `logging` module rather than `print` statements in production code.
+  - Default log level to `INFO` or `WARNING`.
+
+- **Function Documentation**  
+  - Provide concise docstrings for each function or class, describing parameters, return values, and exceptions.
+
+---
+
+## 2. Config & Environment Variables
+
+- **Environment Variables**  
+  - Use `python-dotenv` or `os.getenv` to load environment variables from `.env`.
+  - Store secrets (e.g., tokens, credentials) in environment variables (never in code).
+  - Do not log sensitive environment variables.
+
+- **Default Values**  
+  - Provide sensible defaults for non-critical settings (e.g., a default RSS feed URL).
+  - For required secrets, fail fast if not set (raise an exception or log an error).
+
+- **Separation of Concerns**  
+  - Keep config logic minimal in `config.py`. Avoid large business logic in config.
+
+- **Security**  
+  - `.env` should be ignored by version control (add to `.gitignore`).
+  - If you need more secure storage, consider a secrets manager (e.g., AWS Secrets Manager).
+
+---
+
+## 3. Testing Guidelines
+
+- **Test Framework**  
+  - Use `pytest` for unit tests.
+  - Name test files and functions descriptively (e.g., `test_fetch_rss_feed_valid.py`, `test_store_episodes.py`).
+
+- **Test Coverage**  
+  - Write tests for each major function in `feed_ingest.py`, `storage.py`, and `config.py` (if relevant).
+  - Include edge cases (e.g., malformed RSS data, empty feed, network errors, DB errors).
+
+- **Mocking & Fixtures**  
+  - Mock external dependencies (e.g., HTTP requests) to avoid hitting real endpoints.
+  - Use fixtures for repeated setup code (e.g., creating an in-memory SQLite DB).
+
+- **CI Integration**  
+  - Ensure the test suite runs with a single command (`pytest`).
+  - (Optional) Include coverage reports (`pytest --cov=src`).
+
+- **Directory Structure**  
+  - Mirror the `src/` structure for test files (e.g., `tests/test_feed_ingest.py`, `tests/test_storage.py`).
+  - Keep tests isolated so they can be run in any environment.

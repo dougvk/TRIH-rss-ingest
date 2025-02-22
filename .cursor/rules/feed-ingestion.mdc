@@ -1,0 +1,25 @@
+---
+description: Rules for implementing feed ingestion logic in feed_ingest.py
+globs: src/feed_ingest.py
+---
+# Feed Ingestion Rules
+
+1. **RSS Parsing Library**  
+   - Use `feedparser` for parsing the XML feed content.
+   - Validate the feed data before storing (check for required fields like `title`, `description`).
+
+2. **HTTP Requests**  
+   - Use the `requests` library for HTTP GET calls to the RSS feed.
+   - Handle `requests.exceptions` gracefully (network timeouts, bad status codes, etc.).
+
+3. **Authentication**  
+   - If the feed requires private tokens or credentials, retrieve them from environment variables (via `config.py`).
+   - Do not hardcode secrets or tokens in code.
+
+4. **Data Extraction**  
+   - Extract at least the following fields: `title`, `description`, `link`, `published`.
+   - Use defaults (`''` or `None`) if a field is missing in the RSS entry.
+
+5. **Error Handling & Logging**  
+   - Log the RSS URL and the status code if a request fails.
+   - Catch parsing errors and log a warning instead of crashing the application.
