@@ -7,10 +7,10 @@ class Episode:
     """Represents a podcast episode from the RSS feed."""
     title: str
     description: str
-    link: str
     published_date: datetime
     guid: str  # Unique identifier for the episode
     
     # Optional fields that might not be in every feed
+    link: str = ''  # Made optional with default empty string
     duration: str | None = None
     audio_url: str | None = None 

@@ -1,5 +1,6 @@
 """Main orchestration module for the RSS feed processor."""
 import logging
+import time
 from typing import List
 
 from . import config
@@ -24,11 +25,16 @@ def process_feed() -> List[Episode]:
         Exception: If feed processing fails
     """
     try:
+        start_time = time.time()
         logger.info("Fetching RSS feed from %s", config.get_feed_url())
         content = fetch_rss_feed()
+        fetch_time = time.time()
+        logger.info("Feed fetched in %.2f seconds", fetch_time - start_time)
         
         logger.info("Parsing feed content")
         episodes = parse_rss_feed(content)
+        parse_time = time.time()
+        logger.info("Feed parsed in %.2f seconds", parse_time - fetch_time)
         logger.info("Found %d episodes in feed", len(episodes))
         
         return episodes
@@ -46,9 +52,11 @@ def store_feed_data(episodes: List[Episode]) -> None:
         Exception: If storage fails
     """
     try:
+        start_time = time.time()
         logger.info("Storing %d episodes in database", len(episodes))
         store_episodes(episodes)
-        logger.info("Successfully stored episodes")
+        end_time = time.time()
+        logger.info("Successfully stored episodes in %.2f seconds", end_time - start_time)
     except Exception as e:
         logger.error("Failed to store episodes: %s", str(e))
         raise
@@ -56,6 +64,8 @@ def store_feed_data(episodes: List[Episode]) -> None:
 def main() -> None:
     """Main entry point for the RSS feed processor."""
     try:
+        start_time = time.time()
+        
         # Validate configuration
         config.validate_config()
         
@@ -74,6 +84,9 @@ def main() -> None:
         logger.info("Latest episodes in database:")
         for episode in stored:
             logger.info("- %s (published: %s)", episode.title, episode.published_date)
+            
+        end_time = time.time()
+        logger.info("Total processing time: %.2f seconds", end_time - start_time)
             
     except Exception as e:
         logger.error("Application error: %s", str(e))
