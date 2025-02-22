@@ -14,24 +14,17 @@ DB_PATH = DATA_DIR / "episodes.db"
 # Ensure data directory exists
 DATA_DIR.mkdir(exist_ok=True)
 
-# Feed configuration
-RSS_FEED_URL = os.getenv("RSS_FEED_URL")
-FEED_TOKEN = os.getenv("FEED_TOKEN")
+def get_feed_url():
+    """Get RSS feed URL from environment."""
+    return os.getenv("RSS_FEED_URL")
 
 # Database configuration
 SQLITE_TIMEOUT = 30  # seconds
 
 def validate_config():
     """Validate that all required configuration variables are set."""
-    required_vars = {
-        "RSS_FEED_URL": RSS_FEED_URL,
-        "FEED_TOKEN": FEED_TOKEN,
-    }
-    
-    missing = [var for var, value in required_vars.items() if not value]
-    
-    if missing:
+    if not get_feed_url():
         raise ValueError(
-            f"Missing required environment variables: {', '.join(missing)}\n"
+            "Missing required environment variable: RSS_FEED_URL\n"
             "Please check your .env file."
         ) 

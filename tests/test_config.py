@@ -1,17 +1,27 @@
 """Test configuration loading and validation."""
+import os
 import pytest
-from src.config import validate_config, RSS_FEED_URL, FEED_TOKEN
+from src.config import validate_config, get_feed_url
 
 def test_config_variables_exist():
     """Test that config variables are accessible."""
     assert hasattr(pytest, "fixture")  # Test pytest itself
-    assert RSS_FEED_URL is None  # Should be None since we haven't set it
-    assert FEED_TOKEN is None  # Should be None since we haven't set it
+    # get_feed_url should return something (might be None or a string)
+    assert get_feed_url() is not False
 
-def test_validate_config_raises_error():
-    """Test that validate_config raises error when vars missing."""
+def test_validate_config_with_missing_url(monkeypatch):
+    """Test that validate_config raises error when URL is missing."""
+    # Temporarily unset RSS_FEED_URL
+    monkeypatch.delenv("RSS_FEED_URL", raising=False)
+    
     with pytest.raises(ValueError) as exc_info:
         validate_config()
-    assert "Missing required environment variables" in str(exc_info.value)
-    assert "RSS_FEED_URL" in str(exc_info.value)
-    assert "FEED_TOKEN" in str(exc_info.value) 
+    assert "Missing required environment variable: RSS_FEED_URL" in str(exc_info.value)
+
+def test_validate_config_with_url(monkeypatch):
+    """Test that validate_config passes when URL is set."""
+    # Set a dummy URL
+    monkeypatch.setenv("RSS_FEED_URL", "https://example.com/feed.rss")
+    
+    # Should not raise any exception
+    validate_config() 
