@@ -11,7 +11,7 @@
 - Implement feed_ingest.py:
   - Basic HTTP request functionality
   - Auth header handling
-  - Feed parsing with feedparser
+  - XML parsing with lxml
   - Error handling for network/auth issues
 - Unit test the fetching/parsing in isolation
 
@@ -42,6 +42,7 @@
 - Document error codes/scenarios
 
 ## Technical Decisions
+- Use lxml for robust XML parsing
 - Use connection pooling for SQLite
 - Implement upsert logic to handle duplicate episodes
 - Add retry logic for feed fetching

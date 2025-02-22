@@ -4,9 +4,10 @@ globs: src/feed_ingest.py
 ---
 # Feed Ingestion Rules
 
-1. **RSS Parsing Library**  
-   - Use `feedparser` for parsing the XML feed content.
+1. **XML Parsing Library**  
+   - Use `lxml` for parsing the XML feed content.
    - Validate the feed data before storing (check for required fields like `title`, `description`).
+   - Handle XML namespaces properly (e.g., iTunes namespace for podcast-specific fields).
 
 2. **HTTP Requests**  
    - Use the `requests` library for HTTP GET calls to the RSS feed.
@@ -18,8 +19,10 @@ globs: src/feed_ingest.py
 
 4. **Data Extraction**  
    - Extract at least the following fields: `title`, `description`, `link`, `published`.
-   - Use defaults (`''` or `None`) if a field is missing in the RSS entry.
+   - Use defaults (`''` or `None`) if a field is missing in the XML.
+   - Handle optional podcast-specific fields (duration, audio URL) gracefully.
 
 5. **Error Handling & Logging**  
    - Log the RSS URL and the status code if a request fails.
-   - Catch parsing errors and log a warning instead of crashing the application.
+   - Catch XML parsing errors and provide meaningful error messages.
+   - Use a recovery parser to handle malformed XML when possible.

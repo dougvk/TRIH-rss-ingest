@@ -27,10 +27,37 @@ cp .env.template .env
 
 Required environment variables:
 - `RSS_FEED_URL`: URL of the RSS feed to process
-- `FEED_TOKEN`: Authentication token for the feed
+
+## Features
+
+- Secure RSS feed fetching with proper error handling
+- Robust XML parsing using lxml
+- Structured episode data with dataclass models
+- SQLite storage (coming soon)
 
 ## Development
 
 - Code follows PEP 8 style guidelines
 - Tests are written using pytest
-- Run tests with: `pytest` 
+- Run tests with: `pytest`
+
+## Architecture
+
+The application is structured into several key components:
+
+1. **Feed Ingestion** (`src/feed_ingest.py`):
+   - Fetches RSS feed content using requests
+   - Parses XML using lxml
+   - Converts feed entries to Episode objects
+
+2. **Configuration** (`src/config.py`):
+   - Manages environment variables
+   - Validates required settings
+
+3. **Data Models** (`src/models.py`):
+   - Defines Episode dataclass
+   - Handles data validation
+
+4. **Storage** (`src/storage.py`) - Coming soon:
+   - Will handle SQLite database operations
+   - Will manage episode persistence 

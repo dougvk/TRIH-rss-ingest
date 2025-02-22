@@ -7,7 +7,7 @@ The Podcast Feed Processor is a lean application designed to ingest a private po
 ## Objectives
 
 - **Data Ingestion:** Securely fetch a private RSS feed using HTTP requests with appropriate authentication.
-- **Data Parsing:** Extract episode metadata (title, description, link, published date) using an RSS parsing library.
+- **Data Parsing:** Extract episode metadata (title, description, link, published date) using robust XML parsing.
 - **Data Storage:** Persist the parsed data in a SQLite database for efficient retrieval and later processing.
 - **Modular Architecture:** Develop a clean and modular codebase that can be extended for additional features in later phases.
 
@@ -25,7 +25,7 @@ The Podcast Feed Processor is a lean application designed to ingest a private po
    - Fetch the private RSS feed using an HTTP GET request.
    - Handle authentication via HTTP headers (e.g., Bearer token).
 2. **RSS Parsing:**
-   - Parse the XML feed using a robust RSS parsing library (e.g., `feedparser` in Python).
+   - Parse the XML feed using lxml for robust XML handling.
    - Extract at least the following fields from each episode:
      - Title
      - Description
@@ -69,17 +69,17 @@ podcast_feed_processor/
 - **Programming Language:** Python
 - **Libraries/Modules:**
   - `requests` for HTTP requests.
-  - `feedparser` for parsing RSS feed content.
+  - `lxml` for XML parsing.
   - `python-dotenv` for loading environment variables.
   - Built-in `sqlite3` for database operations.
-  - (Optional) Python's `logging` for error and event logging.
+  - Python's `logging` for error and event logging.
 
 ### Key Modules and Their Roles
 
 1. **src/config.py**
-   - Loads configuration settings (e.g., RSS_FEED_URL, FEED_TOKEN) from environment variables.
+   - Loads configuration settings (e.g., RSS_FEED_URL) from environment variables.
 2. **src/feed_ingest.py**
-   - Contains functions to fetch the RSS feed and parse its content using `feedparser`.
+   - Contains functions to fetch the RSS feed and parse its content using `lxml`.
    - Provides functions like `fetch_rss_feed()` and `parse_rss_feed(feed_content)`.
 3. **src/storage.py**
    - Manages SQLite database connection, table creation, and data insertion.
@@ -95,7 +95,7 @@ podcast_feed_processor/
    - Use the `requests` library to GET the RSS feed URL with the necessary authentication header.
    - Handle any network or authentication errors gracefully.
 3. **Feed Parsing:**
-   - Parse the downloaded XML feed with `feedparser`.
+   - Parse the downloaded XML feed with `lxml`.
    - Extract required fields from each entry in the feed.
 4. **Data Storage:**
    - Insert each parsed episode into the SQLite database.
@@ -110,7 +110,7 @@ podcast_feed_processor/
 - **Database File:**  
   A SQLite database file (e.g., `data/episodes.db`) containing the parsed episodes.
 - **Tests:**  
-  (Optional) Unit tests for the key functions in `feed_ingest.py` and `storage.py`.
+  Unit tests for the key functions in `feed_ingest.py` and `storage.py`.
 
 ## Future Considerations
 
@@ -139,11 +139,11 @@ podcast_feed_processor/
    - Write `src/main.py` to tie together fetching, parsing, and storing functions.
 6. **Documentation and Testing:**
    - Update README.md with usage instructions.
-   - (Optionally) Develop unit tests under the `tests/` directory.
+   - Develop unit tests under the `tests/` directory.
 
 ## Useful URLs for Reference
 
-- [Python Feedparser Documentation](https://pythonhosted.org/feedparser/)
+- [lxml Documentation](https://lxml.de/)
 - [Requests Library Documentation](https://docs.python-requests.org/)
 - [SQLite3 Documentation](https://docs.python.org/3/library/sqlite3.html)
 - [python-dotenv Documentation](https://pypi.org/project/python-dotenv/)
