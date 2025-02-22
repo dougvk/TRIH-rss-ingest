@@ -1,4 +1,4 @@
-"""Integration tests using the real feed."""
+"""Integration tests using a mock feed."""
 import os
 from pathlib import Path
 import sqlite3
@@ -26,7 +26,12 @@ def test_db_path(tmp_path):
         db_path.unlink()
     config.DB_PATH = original_path
 
-def test_full_feed_processing(test_db_path):
+@pytest.fixture
+def mock_config(monkeypatch, mock_feed_url):
+    """Configure the app to use mock feed URL."""
+    monkeypatch.setenv("RSS_FEED_URL", mock_feed_url)
+
+def test_full_feed_processing(test_db_path, mock_config):
     """Test processing the entire feed end-to-end."""
     # Run main process
     main()
@@ -40,12 +45,13 @@ def test_full_feed_processing(test_db_path):
     
     # Verify episode data integrity
     for episode in episodes[:5]:  # Check first 5 episodes
-        assert episode.title
-        assert episode.description
-        assert episode.guid
+        assert episode.title.startswith("Episode ")
+        assert episode.description.startswith("Test description")
+        assert episode.guid.startswith("test-")
         assert isinstance(episode.published_date, datetime)
         assert episode.published_date.tzinfo == timezone.utc
-        assert episode.audio_url  # This feed should have audio URLs
+        assert episode.audio_url.startswith("https://example.com/episode")
+        assert episode.duration == "3600"
         
         # Verify we can fetch individual episodes
         stored = get_episode(episode.guid)
@@ -53,7 +59,7 @@ def test_full_feed_processing(test_db_path):
         assert stored.title == episode.title
         assert stored.published_date == episode.published_date
 
-def test_incremental_update(test_db_path):
+def test_incremental_update(test_db_path, mock_config):
     """Test updating with same feed doesn't duplicate episodes."""
     # First run
     main()
@@ -92,7 +98,7 @@ def test_database_integrity(test_db_path):
             """)
         )
 
-def test_feed_content_integrity():
+def test_feed_content_integrity(mock_config):
     """Test feed content validity."""
     # Fetch feed
     content = fetch_rss_feed()
@@ -115,4 +121,5 @@ def test_feed_content_integrity():
         assert episode.title, "Episode missing title"
         assert episode.description, "Episode missing description"
         assert episode.published_date, "Episode missing date"
-        assert episode.audio_url, "Episode missing audio URL"  # This feed should have audio URLs 
+        assert episode.audio_url, "Episode missing audio URL"
+        assert episode.duration == "3600", "Episode has wrong duration" 
