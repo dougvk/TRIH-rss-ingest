@@ -1,9 +1,47 @@
 """OpenAI integration for episode tagging.
 
-This module handles:
-- OpenAI API calls for tagging
-- Tag processing and validation
+This module provides AI-powered episode tagging with:
+- Taxonomy-based categorization
+- Episode number detection
+- Multi-category tagging
+- Validation and error handling
+
+Tagging Process:
+1. Load taxonomy from markdown file
+2. Construct prompts using episode content
+3. Call OpenAI API for tag generation
+4. Validate returned tags against taxonomy
+5. Store results in database
+
+Tag Categories:
+- Format: Series vs. Standalone episodes
+- Theme: Historical periods and topics
+- Track: Curated content tracks
+- Episode Number: Extracted or inferred
+
+Safety Features:
+- Dry run mode for testing
+- Batch size limits
+- Single episode processing
+- Tag validation before storage
+- Database transaction safety
+
+OpenAI Integration:
+- Uses GPT models for intelligent tagging
+- Deterministic output (temperature=0)
+- Configurable timeouts
 - Error handling and retries
+- Context-aware prompts
+
+Usage Examples:
+    # Tag single episode
+    tags = tag_episode(episode, taxonomy, dry_run=True)
+    
+    # Batch tag with limit
+    results = process_episodes(taxonomy, limit=10)
+    
+    # Get untagged episodes
+    episodes = get_untagged_episodes(limit=5)
 """
 import json
 import logging
@@ -61,8 +99,7 @@ def tag_episode(
                 {"role": "user", "content": prompt}
             ],
             temperature=0.0,  # Use deterministic output
-            timeout=config.API_TIMEOUT,
-            max_retries=config.API_MAX_RETRIES
+            timeout=config.API_TIMEOUT
         )
         
         # Parse and validate tags

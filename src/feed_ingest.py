@@ -2,14 +2,37 @@
 
 This module handles fetching and parsing RSS feeds, with specific support for:
 - Private podcast feeds with authentication
-- iTunes podcast namespace fields
+- iTunes podcast namespace fields (duration, audio URL)
 - Timezone-aware publication dates
-- Robust error handling
+- Episode number extraction from titles
+- Robust error handling and validation
 
-Performance characteristics:
+Performance Characteristics:
 - Feed fetching: ~1.0s for typical feeds
 - XML parsing: ~0.03s for 729 episodes
-- Memory efficient streaming parser
+- Memory efficient streaming parser using lxml
+
+Safety Features:
+- Configurable timeouts for feed fetching
+- Validation of required fields (title, description, GUID)
+- Graceful handling of missing optional fields
+- Environment-specific feed URLs
+- Testing support with episode limits
+
+Feed Structure:
+- Uses standard RSS 2.0 format
+- Supports iTunes podcast namespace extensions
+- Required fields: guid, title, description, pubDate
+- Optional fields: link, duration, audio_url
+- Custom field: episode_number (extracted from title)
+
+Usage Examples:
+    # Fetch and parse all episodes
+    content = fetch_rss_feed()
+    episodes = parse_rss_feed(content)
+    
+    # Parse with limit (for testing)
+    episodes = parse_rss_feed(content, limit=20)
 """
 from datetime import datetime
 import requests
@@ -76,28 +99,18 @@ def fetch_rss_feed() -> str:
     
     return response.text
 
-def parse_rss_feed(content: str) -> List[Episode]:
+def parse_rss_feed(content: str, limit: Optional[int] = None) -> List[Episode]:
     """Parse RSS feed XML content into Episode objects.
-    
-    This function handles:
-        - XML parsing with lxml
-        - Timezone-aware dates
-        - Required and optional fields
-        - Data validation
     
     Args:
         content: Raw XML content of the feed
+        limit: Maximum number of episodes to parse (for testing)
         
     Returns:
         List[Episode]: List of parsed episodes
         
     Raises:
         ValueError: If feed is empty or invalid
-        
-    Example:
-        >>> content = fetch_rss_feed()
-        >>> episodes = parse_rss_feed(content)
-        >>> print(f"Found {len(episodes)} episodes")
     """
     try:
         # Parse XML
@@ -109,6 +122,10 @@ def parse_rss_feed(content: str) -> List[Episode]:
         
         if not items:
             raise ValueError("No episodes found in feed")
+            
+        # Apply limit if specified
+        if limit is not None:
+            items = items[:limit]
             
         for item in items:
             try:

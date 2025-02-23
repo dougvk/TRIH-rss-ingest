@@ -1,9 +1,50 @@
 """Episode content cleaning functionality.
 
-This module handles cleaning episode descriptions by:
-1. Using regex patterns to identify common promotional content
-2. Using OpenAI's API to intelligently clean remaining promotional content
-3. Tracking cleaning status and results in the database
+This module handles cleaning episode descriptions through a two-step process:
+1. Regex-based Cleaning:
+   - Removes common promotional content using predefined patterns
+   - Cleans social media handles and links
+   - Removes production credits and show notes
+   - Handles various promotional formats (live shows, tours, etc.)
+
+2. AI-based Cleaning (OpenAI):
+   - Intelligent content analysis using GPT models
+   - Preserves historical content while removing promotions
+   - Maintains original writing style and tone
+   - Context-aware cleaning using episode titles
+
+Data Tracking:
+- Cleaning status stored in database
+- Timestamps for cleaning operations
+- Modification tracking (is_modified flag)
+- Original and cleaned descriptions preserved
+
+Safety Features:
+- Dry run mode for testing
+- Batch size limits
+- Single episode processing
+- Error handling and logging
+- Database transaction safety
+
+Regex Patterns:
+- 40+ patterns for common promotional content
+- Pattern categories:
+  - Social media and contact info
+  - Live show announcements
+  - Tour dates and tickets
+  - Production credits
+  - Website links
+  - Membership promotions
+
+Usage Examples:
+    # Clean single episode
+    result = clean_episode("episode-guid", dry_run=True)
+    
+    # Batch clean with limit
+    results = process_episodes(limit=10)
+    
+    # Get random sample for testing
+    guids = get_sample_episodes(sample_size=5)
 """
 import re
 from datetime import datetime, timezone
@@ -127,8 +168,7 @@ def clean_with_openai(text: str, title: str, dry_run: bool = False) -> Optional[
                 {"role": "user", "content": f"Clean this episode description for episode titled '{title}':\n\n{text}"}
             ],
             temperature=0.0,  # Use deterministic output
-            timeout=config.API_TIMEOUT,
-            max_retries=config.API_MAX_RETRIES
+            timeout=config.API_TIMEOUT
         )
         return response.choices[0].message.content.strip()
     except Exception as e:

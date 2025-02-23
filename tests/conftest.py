@@ -22,17 +22,16 @@ def test_env():
     
     # Copy production database if it exists
     prod_db = config.DATA_DIR / "episodes.db"
-    if prod_db.exists():
-        shutil.copy2(prod_db, config.DB_PATH)
-        config.logger.info("Copied production database to test database")
+    test_db = config.DATA_DIR / "test.db"
     
-    # Run the test
+    if prod_db.exists() and prod_db != test_db:
+        shutil.copy2(prod_db, test_db)
+    
     yield
     
     # Clean up test database
-    if config.DB_PATH.exists():
-        config.DB_PATH.unlink()
-        config.logger.info("Cleaned up test database")
+    if test_db.exists():
+        os.remove(test_db)
 
 @pytest.fixture
 def mock_feed():
