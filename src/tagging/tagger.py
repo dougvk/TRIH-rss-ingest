@@ -13,7 +13,7 @@ from typing import Dict, List, Optional
 import openai
 
 from src.models import Episode
-from src.storage import get_connection
+from src.storage import get_connection, get_episodes
 from .prompt import construct_prompt, validate_tags, load_taxonomy
 
 # Configure logging
@@ -74,11 +74,13 @@ def tag_episode(episode: Episode, taxonomy: Dict[str, List[str]], dry_run: bool 
                 conn.execute('''
                     UPDATE episodes 
                     SET tags = ?,
-                        tagging_timestamp = ?
+                        tagging_timestamp = ?,
+                        episode_number = ?
                     WHERE guid = ?
                 ''', (
                     json.dumps(tags),
                     datetime.now(timezone.utc),
+                    tags.get('episode_number'),
                     episode.guid
                 ))
                 
@@ -87,6 +89,17 @@ def tag_episode(episode: Episode, taxonomy: Dict[str, List[str]], dry_run: bool 
     except Exception as e:
         logger.error("Error tagging episode %s: %s", episode.guid, str(e))
         return None
+
+def get_all_episodes(limit: Optional[int] = None) -> List[Episode]:
+    """Get all episodes for tagging.
+    
+    Args:
+        limit: Maximum number of episodes to return
+        
+    Returns:
+        List of episodes
+    """
+    return get_episodes(limit=limit)
 
 def get_untagged_episodes(limit: Optional[int] = None) -> List[Episode]:
     """Get episodes that haven't been tagged yet.

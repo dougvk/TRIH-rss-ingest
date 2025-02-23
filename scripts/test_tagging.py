@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from src.storage import init_db
+from src.main import process_feed, store_feed_data
 from src.tagging.processor import process_episodes
 from src.cleaning import get_sample_episodes, clean_episode
 
@@ -81,7 +82,13 @@ def cleanup_old_results():
             logger.warning("Failed to remove %s: %s", f, e)
 
 def main():
-    """Test episode tagging functionality."""
+    """Tag all episodes."""
+    # Load taxonomy
+    taxonomy_path = Path("src/tagging/Tagging-Episodes-Framework.md")
+    if not taxonomy_path.exists():
+        logger.error("Taxonomy file not found: %s", taxonomy_path)
+        return
+
     try:
         # Clean up old results files
         cleanup_old_results()
@@ -94,11 +101,13 @@ def main():
         logger.info("Initializing database with tagging columns")
         init_db()
         
+        # Fetch and store feed data first
+        logger.info("Fetching and storing feed data")
+        episodes = process_feed()
+        store_feed_data(episodes)
+        logger.info("Successfully stored %d episodes", len(episodes))
+        
         # Set up paths and files
-        taxonomy_path = Path("Tagging-Episodes-Framework.md")
-        if not taxonomy_path.exists():
-            raise FileNotFoundError(f"Taxonomy file not found: {taxonomy_path}")
-            
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         results_file = f"tagging_results_{timestamp}.txt"
         
@@ -106,15 +115,13 @@ def main():
         logger.info("Performing dry run...")
         process_episodes(
             taxonomy_path=taxonomy_path,
-            batch_size=20,
             dry_run=True
         )
         
-        # Process actual batch
+        # Process all episodes
         logger.info("Processing episodes...")
         process_episodes(
             taxonomy_path=taxonomy_path,
-            batch_size=20,
             dry_run=False,
             results_file=results_file
         )

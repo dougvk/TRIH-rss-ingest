@@ -15,7 +15,7 @@ import textwrap
 
 from src.models import Episode
 from .prompt import load_taxonomy
-from .tagger import tag_episode, get_untagged_episodes
+from .tagger import tag_episode, get_all_episodes
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -76,15 +76,15 @@ def wrap_text(text: str, width: int = 120) -> str:
 
 def process_episodes(
     taxonomy_path: Path,
-    batch_size: int = 10,
+    batch_size: Optional[int] = None,
     dry_run: bool = False,
     results_file: Optional[str] = None
 ) -> None:
-    """Process a batch of episodes for tagging.
+    """Process episodes for tagging.
     
     Args:
         taxonomy_path: Path to taxonomy markdown file
-        batch_size: Number of episodes to process
+        batch_size: Optional number of episodes to process (None for all)
         dry_run: If True, don't save changes to database
         results_file: Optional path to save results
     """
@@ -93,10 +93,10 @@ def process_episodes(
         logger.info("Loading taxonomy from %s", taxonomy_path)
         taxonomy = load_taxonomy(taxonomy_path)
         
-        # Get untagged episodes
-        episodes = get_untagged_episodes(limit=batch_size)
+        # Get all episodes
+        episodes = get_all_episodes(limit=batch_size)
         if not episodes:
-            logger.info("No untagged episodes found")
+            logger.info("No episodes found")
             return
             
         logger.info("Processing %d episodes", len(episodes))
