@@ -20,8 +20,8 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Generator, List, Optional
 
-from . import config
-from .models import Episode
+from src import config
+from src.models import Episode
 
 # Register adapters and converters for datetime with timezone
 def adapt_datetime(dt: datetime) -> str:
@@ -66,12 +66,14 @@ def init_db() -> None:
         - episodes table with all required fields
         - GUID index for fast lookups
         - Published date index for chronological queries
+        - Cleaning status index for content processing
         
     The schema is designed for:
         - Fast episode lookups by GUID
         - Efficient date-based pagination
         - Automatic duplicate handling
         - Audit trail with timestamps
+        - Content cleaning tracking
     """
     with get_connection() as conn:
         conn.execute('''
@@ -84,6 +86,9 @@ def init_db() -> None:
             published_date TIMESTAMP NOT NULL,
             duration TEXT,
             audio_url TEXT,
+            cleaned_description TEXT,
+            cleaning_timestamp TIMESTAMP,
+            cleaning_status TEXT DEFAULT 'pending',
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
@@ -92,6 +97,7 @@ def init_db() -> None:
         # Create indexes for common queries
         conn.execute('CREATE INDEX IF NOT EXISTS idx_episodes_guid ON episodes(guid)')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_episodes_published_date ON episodes(published_date)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_episodes_cleaning_status ON episodes(cleaning_status)')
 
 @contextmanager
 def get_connection() -> Generator[sqlite3.Connection, None, None]:

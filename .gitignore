@@ -52,4 +52,7 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
-.hypothesis/ 
+.hypothesis/
+
+# Cleaning results
+cleaning_results_*.txt 

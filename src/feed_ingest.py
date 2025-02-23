@@ -16,8 +16,8 @@ import requests
 from typing import List
 from lxml import etree
 
-from . import config
-from .models import Episode
+from src import config
+from src.models import Episode
 
 def fetch_rss_feed() -> str:
     """Fetch RSS feed content from configured URL.
