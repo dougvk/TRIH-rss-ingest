@@ -23,6 +23,7 @@ class Episode:
         link (str): Web link to episode page (defaults to empty string)
         duration (str | None): Episode duration (e.g., "45:00" or None)
         audio_url (str | None): Direct URL to audio file (from enclosure tag)
+        cleaned_description (str | None): Cleaned version of the description
     
     Example:
         >>> episode = Episode(
@@ -42,4 +43,5 @@ class Episode:
     # Optional fields that might not be in every feed
     link: str = ''  # Made optional with default empty string
     duration: str | None = None
-    audio_url: str | None = None 
+    audio_url: str | None = None
+    cleaned_description: str | None = None 

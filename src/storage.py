@@ -291,7 +291,7 @@ def get_episodes(limit: Optional[int] = None, offset: int = 0) -> List[Episode]:
     with get_connection() as conn:
         query = '''
         SELECT guid, title, description, link, published_date, 
-               duration, audio_url
+               duration, audio_url, cleaned_description
         FROM episodes 
         ORDER BY published_date DESC
         '''
@@ -309,7 +309,8 @@ def get_episodes(limit: Optional[int] = None, offset: int = 0) -> List[Episode]:
                 link=row['link'],
                 published_date=row['published_date'],
                 duration=row['duration'],
-                audio_url=row['audio_url']
+                audio_url=row['audio_url'],
+                cleaned_description=row['cleaned_description']
             )
             for row in rows
         ] 

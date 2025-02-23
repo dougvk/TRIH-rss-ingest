@@ -181,21 +181,24 @@ def clean_episode(guid: str, dry_run: bool = False) -> Optional[CleaningResult]:
             
     return result
 
-def get_sample_episodes(sample_size: int = 10) -> List[str]:
+def get_sample_episodes(sample_size: int | None = 10) -> List[str]:
     """Get a random sample of episode GUIDs for cleaning.
     
     Args:
-        sample_size: Number of episodes to sample
+        sample_size: Number of episodes to sample, or None for all episodes
         
     Returns:
         List of episode GUIDs
     """
     with get_connection() as conn:
-        rows = conn.execute('''
+        query = '''
             SELECT guid FROM episodes 
-            WHERE cleaning_status = 'pending'
             ORDER BY RANDOM()
-            LIMIT ?
-        ''', (sample_size,)).fetchall()
+        '''
+        
+        if sample_size is not None:
+            query += f' LIMIT {sample_size}'
+            
+        rows = conn.execute(query).fetchall()
         
     return [row['guid'] for row in rows] 

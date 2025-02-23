@@ -41,7 +41,7 @@ def cleanup_old_results():
             logger.warning("Failed to remove %s: %s", f, e)
 
 def main():
-    """Test cleaning functionality with a sample of episodes."""
+    """Clean all pending episodes."""
     try:
         # Cleanup old results
         cleanup_old_results()
@@ -54,9 +54,9 @@ def main():
         logger.info("Initializing database with cleaning columns")
         init_db()
         
-        # Get sample episodes
-        sample_size = 10  # Increased to 10 episodes
-        logger.info("Getting sample of %d episodes", sample_size)
+        # Get all pending episodes
+        sample_size = None  # None means get all pending episodes
+        logger.info("Getting all pending episodes")
         guids = get_sample_episodes(sample_size)
         
         if not guids:
@@ -75,7 +75,8 @@ def main():
             
             # Try cleaning each episode
             for i, guid in enumerate(guids, 1):
-                f.write(wrap_text(f"Episode {i} (GUID: {guid})") + "\n")
+                logger.info("Progress: %d/%d episodes (%d%%)", i, len(guids), (i * 100) // len(guids))
+                f.write(wrap_text(f"Episode {i}/{len(guids)} (GUID: {guid})") + "\n")
                 f.write("-" * 120 + "\n")
                 
                 logger.info("Cleaning episode %s", guid)
