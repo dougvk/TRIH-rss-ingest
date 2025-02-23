@@ -3,11 +3,45 @@
 This module defines the core data structures used throughout the application.
 The models are implemented as dataclasses for clean, immutable data representation.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Optional
+from dateutil.parser import parse
 
 @dataclass
 class Episode:
+    """Represents a single podcast episode with all its metadata."""
+    
+    # Required fields
+    guid: str
+    title: str
+    description: str
+    published_date: datetime
+    
+    # Optional fields with defaults
+    link: str = ''
+    duration: Optional[str] = None
+    audio_url: Optional[str] = None
+    cleaned_description: Optional[str] = None
+    cleaning_timestamp: Optional[datetime] = None
+    cleaning_status: str = "pending"
+    tags: Optional[str] = None
+    tagging_timestamp: Optional[datetime] = None
+    episode_number: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    def __post_init__(self):
+        """Validate and convert fields after initialization."""
+        if isinstance(self.published_date, str):
+            self.published_date = parse(self.published_date)
+            
+        if isinstance(self.cleaning_timestamp, str):
+            self.cleaning_timestamp = parse(self.cleaning_timestamp)
+            
+        if isinstance(self.tagging_timestamp, str):
+            self.tagging_timestamp = parse(self.tagging_timestamp)
+
     """Represents a podcast episode from the RSS feed.
     
     This class captures all relevant metadata about a podcast episode,

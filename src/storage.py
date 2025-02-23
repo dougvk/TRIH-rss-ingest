@@ -62,20 +62,15 @@ sqlite3.register_converter("timestamp", convert_datetime)
 def init_db() -> None:
     """Initialize the database and create tables if they don't exist.
     
-    Creates:
+    Creates or updates:
         - episodes table with all required fields
         - GUID index for fast lookups
         - Published date index for chronological queries
         - Cleaning status index for content processing
-        
-    The schema is designed for:
-        - Fast episode lookups by GUID
-        - Efficient date-based pagination
-        - Automatic duplicate handling
-        - Audit trail with timestamps
-        - Content cleaning tracking
+        - Tags index for efficient tag-based queries
     """
     with get_connection() as conn:
+        # First create table if it doesn't exist with base columns
         conn.execute('''
         CREATE TABLE IF NOT EXISTS episodes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,18 +81,38 @@ def init_db() -> None:
             published_date TIMESTAMP NOT NULL,
             duration TEXT,
             audio_url TEXT,
-            cleaned_description TEXT,
-            cleaning_timestamp TIMESTAMP,
-            cleaning_status TEXT DEFAULT 'pending',
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         ''')
         
+        # Add new columns if they don't exist
+        existing_columns = [row[1] for row in conn.execute("PRAGMA table_info(episodes)").fetchall()]
+        
+        if 'cleaned_description' not in existing_columns:
+            conn.execute('ALTER TABLE episodes ADD COLUMN cleaned_description TEXT')
+            
+        if 'cleaning_timestamp' not in existing_columns:
+            conn.execute('ALTER TABLE episodes ADD COLUMN cleaning_timestamp TIMESTAMP')
+            
+        if 'cleaning_status' not in existing_columns:
+            conn.execute('ALTER TABLE episodes ADD COLUMN cleaning_status TEXT DEFAULT "pending"')
+            
+        if 'tags' not in existing_columns:
+            conn.execute('ALTER TABLE episodes ADD COLUMN tags TEXT')
+            
+        if 'tagging_timestamp' not in existing_columns:
+            conn.execute('ALTER TABLE episodes ADD COLUMN tagging_timestamp TIMESTAMP')
+            
+        if 'episode_number' not in existing_columns:
+            conn.execute('ALTER TABLE episodes ADD COLUMN episode_number INTEGER')
+        
         # Create indexes for common queries
         conn.execute('CREATE INDEX IF NOT EXISTS idx_episodes_guid ON episodes(guid)')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_episodes_published_date ON episodes(published_date)')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_episodes_cleaning_status ON episodes(cleaning_status)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_episodes_tags ON episodes(tags)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_episodes_episode_number ON episodes(episode_number)')
 
 @contextmanager
 def get_connection() -> Generator[sqlite3.Connection, None, None]:
@@ -163,8 +178,9 @@ def store_episode(episode: Episode) -> None:
         conn.execute('''
         INSERT INTO episodes (
             guid, title, description, link, published_date, 
-            duration, audio_url, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            duration, audio_url, cleaned_description, cleaning_timestamp,
+            cleaning_status, tags, tagging_timestamp, episode_number, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(guid) DO UPDATE SET
             title = excluded.title,
             description = excluded.description,
@@ -172,6 +188,12 @@ def store_episode(episode: Episode) -> None:
             published_date = excluded.published_date,
             duration = excluded.duration,
             audio_url = excluded.audio_url,
+            cleaned_description = excluded.cleaned_description,
+            cleaning_timestamp = excluded.cleaning_timestamp,
+            cleaning_status = excluded.cleaning_status,
+            tags = excluded.tags,
+            tagging_timestamp = excluded.tagging_timestamp,
+            episode_number = excluded.episode_number,
             updated_at = CURRENT_TIMESTAMP
         ''', (
             episode.guid,
@@ -180,7 +202,13 @@ def store_episode(episode: Episode) -> None:
             episode.link,
             episode.published_date,
             episode.duration,
-            episode.audio_url
+            episode.audio_url,
+            episode.cleaned_description,
+            episode.cleaning_timestamp,
+            episode.cleaning_status,
+            episode.tags,
+            episode.tagging_timestamp,
+            episode.episode_number
         ))
 
 def store_episodes(episodes: List[Episode]) -> None:
@@ -203,8 +231,9 @@ def store_episodes(episodes: List[Episode]) -> None:
         conn.executemany('''
         INSERT INTO episodes (
             guid, title, description, link, published_date, 
-            duration, audio_url, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            duration, audio_url, cleaned_description, cleaning_timestamp,
+            cleaning_status, tags, tagging_timestamp, episode_number, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(guid) DO UPDATE SET
             title = excluded.title,
             description = excluded.description,
@@ -212,6 +241,12 @@ def store_episodes(episodes: List[Episode]) -> None:
             published_date = excluded.published_date,
             duration = excluded.duration,
             audio_url = excluded.audio_url,
+            cleaned_description = excluded.cleaned_description,
+            cleaning_timestamp = excluded.cleaning_timestamp,
+            cleaning_status = excluded.cleaning_status,
+            tags = excluded.tags,
+            tagging_timestamp = excluded.tagging_timestamp,
+            episode_number = excluded.episode_number,
             updated_at = CURRENT_TIMESTAMP
         ''', [
             (
@@ -221,7 +256,13 @@ def store_episodes(episodes: List[Episode]) -> None:
                 episode.link,
                 episode.published_date,
                 episode.duration,
-                episode.audio_url
+                episode.audio_url,
+                episode.cleaned_description,
+                episode.cleaning_timestamp,
+                episode.cleaning_status,
+                episode.tags,
+                episode.tagging_timestamp,
+                episode.episode_number
             )
             for episode in episodes
         ])
@@ -249,7 +290,8 @@ def get_episode(guid: str) -> Optional[Episode]:
     with get_connection() as conn:
         row = conn.execute('''
         SELECT guid, title, description, link, published_date, 
-               duration, audio_url
+               duration, audio_url, cleaned_description, cleaning_timestamp,
+               cleaning_status, tags, tagging_timestamp, episode_number
         FROM episodes 
         WHERE guid = ?
         ''', (guid,)).fetchone()
@@ -264,7 +306,13 @@ def get_episode(guid: str) -> Optional[Episode]:
             link=row['link'],
             published_date=row['published_date'],
             duration=row['duration'],
-            audio_url=row['audio_url']
+            audio_url=row['audio_url'],
+            cleaned_description=row['cleaned_description'],
+            cleaning_timestamp=row['cleaning_timestamp'],
+            cleaning_status=row['cleaning_status'],
+            tags=row['tags'],
+            tagging_timestamp=row['tagging_timestamp'],
+            episode_number=row['episode_number']
         )
 
 def get_episodes(limit: Optional[int] = None, offset: int = 0) -> List[Episode]:
@@ -291,7 +339,8 @@ def get_episodes(limit: Optional[int] = None, offset: int = 0) -> List[Episode]:
     with get_connection() as conn:
         query = '''
         SELECT guid, title, description, link, published_date, 
-               duration, audio_url, cleaned_description
+               duration, audio_url, cleaned_description, cleaning_timestamp,
+               cleaning_status, tags, tagging_timestamp, episode_number
         FROM episodes 
         ORDER BY published_date DESC
         '''
@@ -310,7 +359,18 @@ def get_episodes(limit: Optional[int] = None, offset: int = 0) -> List[Episode]:
                 published_date=row['published_date'],
                 duration=row['duration'],
                 audio_url=row['audio_url'],
-                cleaned_description=row['cleaned_description']
+                cleaned_description=row['cleaned_description'],
+                cleaning_timestamp=row['cleaning_timestamp'],
+                cleaning_status=row['cleaning_status'],
+                tags=row['tags'],
+                tagging_timestamp=row['tagging_timestamp'],
+                episode_number=row['episode_number']
             )
             for row in rows
         ] 
+
+def reset_db() -> None:
+    """Drop and recreate the database with the latest schema."""
+    if config.DB_PATH.exists():
+        config.DB_PATH.unlink()
+    init_db() 

@@ -29,12 +29,13 @@ def sample_episode():
     """Create a sample episode for testing."""
     return Episode(
         guid="test-123",
-        title="Test Episode",
+        title="Test Episode (Ep 1)",
         description="Test Description",
         link="https://example.com/test",
         published_date=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
         duration="30:00",
-        audio_url="https://example.com/test.mp3"
+        audio_url="https://example.com/test.mp3",
+        episode_number=1
     )
 
 @pytest.fixture
@@ -43,12 +44,13 @@ def sample_episodes():
     return [
         Episode(
             guid=f"test-{i}",
-            title=f"Test Episode {i}",
+            title=f"Test Episode (Ep {i+1})",
             description=f"Test Description {i}",
             link=f"https://example.com/test-{i}",
             published_date=datetime(2024, 1, i+1, 12, 0, tzinfo=timezone.utc),
             duration=f"{30+i}:00",
-            audio_url=f"https://example.com/test-{i}.mp3"
+            audio_url=f"https://example.com/test-{i}.mp3",
+            episode_number=i+1
         )
         for i in range(3)
     ]
@@ -145,6 +147,7 @@ def test_store_episode(test_db_path, sample_episode):
         assert row['published_date'] == sample_episode.published_date
         assert row['duration'] == sample_episode.duration
         assert row['audio_url'] == sample_episode.audio_url
+        assert row['episode_number'] == sample_episode.episode_number
 
 def test_store_episode_update(test_db_path, sample_episode):
     """Test updating an existing episode."""
@@ -156,12 +159,13 @@ def test_store_episode_update(test_db_path, sample_episode):
     # Update the episode
     updated_episode = Episode(
         guid=sample_episode.guid,  # Same guid
-        title="Updated Title",
+        title="Updated Title (Ep 2)",
         description="Updated Description",
         link=sample_episode.link,
         published_date=sample_episode.published_date,
         duration="45:00",
-        audio_url=sample_episode.audio_url
+        audio_url=sample_episode.audio_url,
+        episode_number=2
     )
     store_episode(updated_episode)
     
@@ -171,9 +175,10 @@ def test_store_episode_update(test_db_path, sample_episode):
         assert count == 1  # Still only one episode
         
         row = conn.execute("SELECT * FROM episodes WHERE guid = ?", (sample_episode.guid,)).fetchone()
-        assert row['title'] == "Updated Title"
+        assert row['title'] == "Updated Title (Ep 2)"
         assert row['description'] == "Updated Description"
         assert row['duration'] == "45:00"
+        assert row['episode_number'] == 2
 
 def test_store_episodes_batch(test_db_path, sample_episodes):
     """Test storing multiple episodes in a batch."""

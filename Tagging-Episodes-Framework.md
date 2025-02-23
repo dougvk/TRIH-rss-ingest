@@ -1,6 +1,6 @@
 Episode Tagging Taxonomy and Track Suggestions
 
-This document offers a two–layer approach to organizing the episodes. The first section provides a taxonomy of broad thematic categories (tags) that cut across series and standalone episodes. The second section proposes up to 20 “tracks” – curated guided paths that group episodes sharing a common narrative or subject matter.
+This document offers a multi–layer approach to organizing the episodes. The first section provides a taxonomy of broad thematic categories (tags) that cut across series and standalone episodes. The second section proposes up to 20 “tracks” – curated guided paths that group episodes sharing a common narrative or subject matter. An episode can have multiple tags and tracks.
 
 1. Thematic Tagging for Episodes
 
@@ -54,14 +54,13 @@ Focus: Tracks that allow users to deep–dive into the history of a specific cou
 Examples: “America in …”, “British History” episodes, or more focused series like “Canada: Beaver Wars”, “Senegal: The Door of No Return”, “Australia Before Cook”, etc.
 Use if: A visitor wants a track focused on a particular nation or region.
 
-Additional Meta–Tags
+C. Additional Meta–Tags
+We also want to tag episodes for recurring formats or series:
+	•	RIHC Series: For all bonus episodes marked “RIHC or Bonus”
+	•	Archive Editions: For episodes marked “ARCHIVE”
+	•	Multi–Part Series: Episodes with "Part 01"
 
-You may also want to apply tags for recurring formats or series:
-	•	RIHC Series: For all bonus episodes marked “RIHC: …”
-	•	Archive Editions: For episodes marked “ARCHIVE: …”
-	•	Multi–Part Series: Episodes with “Part 1”, “Ep 1”, etc.
-
-2. Proposed Tracks
+2. The Tracks
 
 Below is a list of 20 curated “tracks”—guided pathways through your episodes. These tracks are based on narrative threads or topical interests that can combine series episodes with standalone ones.
 	1.	Roman Track

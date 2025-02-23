@@ -99,6 +99,46 @@
   - Progressive increase in batch size (In Progress)
   - Full database cleaning (729 episodes) (Pending)
 
+## Phase 8: Episode Tagging (In Progress)
+- Schema Updates: ✓
+  - Add tags column to episodes table ✓
+  - Add tagging timestamp column ✓
+
+- Tagging Module: ✓
+  - Create tagging/ package structure ✓
+  - Implement prompt management from markdown ✓
+  - Add OpenAI integration with GPT-3.5-turbo ✓
+  - Build batch processing logic ✓
+
+- Random Sampling: ✓
+  - Reuse existing random sampling function ✓
+  - Add logging for episode type diversity ✓
+
+- Quality Control: ✓
+  - Add dry-run mode ✓
+  - Implement progress tracking ✓
+  - Add detailed before/after logging ✓
+  - Build pause/resume capability (Pending)
+
+- Testing:
+  - Add tests for prompt construction ✓
+  - Mock OpenAI API responses ✓
+  - Test tag format validation ✓
+  - Verify database updates ✓
+
+- Deployment:
+  - Start with 20 episode sample (In Progress)
+  - Manual verification step (Next)
+  - Progressive increase (50, 200, all) (Pending)
+  - Full database tagging (729 episodes) (Pending)
+
+## Benefits of This Approach
+- Reuse of existing random sampling code
+- Progressive rollout with verification
+- Comprehensive logging for review
+- Flexible tagging framework
+- Cost-efficient testing with mocks
+
 ## Technical Decisions
 
 ### Architecture ✓

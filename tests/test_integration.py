@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlite3
 import pytest
 from datetime import datetime, timezone
+import re
 
 from src.main import main
 from src.feed_ingest import fetch_rss_feed, parse_rss_feed
@@ -53,11 +54,24 @@ def test_full_feed_processing(test_db_path, mock_config):
         assert episode.audio_url.startswith("https://example.com/episode")
         assert episode.duration == "3600"
         
+        # Verify episode number if it's a series episode
+        if "(Ep " in episode.title:
+            assert episode.episode_number is not None
+            assert isinstance(episode.episode_number, int)
+            # Extract the expected episode number from the title
+            match = re.search(r'\(Ep\s*(\d+)\)', episode.title)
+            assert match is not None
+            expected_number = int(match.group(1))
+            assert episode.episode_number == expected_number
+        else:
+            assert episode.episode_number is None
+        
         # Verify we can fetch individual episodes
         stored = get_episode(episode.guid)
         assert stored is not None
         assert stored.title == episode.title
         assert stored.published_date == episode.published_date
+        assert stored.episode_number == episode.episode_number
 
 def test_incremental_update(test_db_path, mock_config):
     """Test updating with same feed doesn't duplicate episodes."""

@@ -15,6 +15,7 @@ from datetime import datetime
 import requests
 from typing import List
 from lxml import etree
+import re
 
 from src import config
 from src.models import Episode
@@ -55,6 +56,7 @@ def parse_rss_feed(content: str) -> List[Episode]:
         - Handles podcast-specific fields (duration, audio URL)
         - Converts dates to timezone-aware datetime objects
         - Validates required fields
+        - Extracts episode numbers from titles
     
     Args:
         content: Raw XML content of the feed
@@ -93,13 +95,33 @@ def parse_rss_feed(content: str) -> List[Episode]:
             raise ValueError("No episodes found in feed")
         
         episodes = []
-        for item in items:
+        for i, item in enumerate(items):
             # Helper function to safely get text content
             def get_text(element, default: str = '') -> str:
                 return (element.text or default) if element is not None else default
             
             # Get required fields
             title = get_text(item.find('title'))
+            
+            # Debug first few episodes
+            if i < 5:
+                print(f"\n=== Processing episode {i} ===")
+                print(f"Title: {title}")
+                print(f"Looking for episode number in: {title}")
+                
+                # Try all patterns for debugging
+                patterns = [
+                    (r'\(Ep\s*(\d+)\)', '(Ep X)'),
+                    (r'\(Part\s*(\d+)\)', '(Part X)'),
+                    (r'Part\s*(\d+)', 'Part X'),
+                    (r'Episode\s*(\d+)', 'Episode X')
+                ]
+                
+                for pattern, desc in patterns:
+                    match = re.search(pattern, title, re.IGNORECASE)
+                    if match:
+                        print(f"Found {desc} pattern: {match.group(1)}")
+            
             description = get_text(item.find('description'))
             link = get_text(item.find('link'))
             guid = get_text(item.find('guid'))
@@ -123,6 +145,38 @@ def parse_rss_feed(content: str) -> List[Episode]:
             except ValueError as e:
                 raise ValueError(f"Invalid date format in feed: {pub_date}") from e
             
+            # Extract episode number from title
+            episode_number = None
+            
+            # Debug log
+            print(f"\nProcessing title: {title}")
+            print(f"Looking for episode number in: {title}")
+            
+            # Only look for (Ep X) pattern as that's the authoritative source
+            match = re.search(r'\(Ep\s*(\d+)\)', title, re.IGNORECASE)
+            if match:
+                try:
+                    episode_number = int(match.group(1))
+                    print(f"✓ Found series episode number {episode_number} from pattern '(Ep X)'")
+                except (IndexError, ValueError) as e:
+                    print(f"✗ Failed to extract number from match: {e}")
+            else:
+                print(f"✗ No '(Ep X)' pattern found in title")
+                
+                # Try other patterns for debugging
+                other_patterns = [
+                    (r'\(Part\s*(\d+)\)', '(Part X)'),
+                    (r'Part\s*(\d+)', 'Part X'),
+                    (r'Episode\s*(\d+)', 'Episode X')
+                ]
+                
+                for pattern, desc in other_patterns:
+                    match = re.search(pattern, title, re.IGNORECASE)
+                    if match:
+                        print(f"! Found {desc} pattern but not using it: {match.group(1)}")
+            
+            print(f"Final episode_number value: {episode_number}")
+            
             episode = Episode(
                 title=title,
                 description=description,
@@ -130,7 +184,8 @@ def parse_rss_feed(content: str) -> List[Episode]:
                 published_date=published_date,
                 guid=guid,
                 duration=duration,
-                audio_url=audio_url
+                audio_url=audio_url,
+                episode_number=episode_number
             )
             episodes.append(episode)
         
