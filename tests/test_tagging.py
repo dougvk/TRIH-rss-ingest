@@ -267,14 +267,15 @@ def test_process_episodes(tmp_path, sample_taxonomy):
         
         # Test processing
         results_file = tmp_path / "results.txt"
-        process_episodes(
+        results = process_episodes(
             taxonomy_path=taxonomy_file,
-            batch_size=2,
+            limit=2,
             results_file=str(results_file)
         )
         
-        # Verify results file was created
+        # Verify results
+        assert len(results) == 2
+        assert all(r == {"Format": ["Standalone"]} for r in results)
         assert results_file.exists()
-        content = results_file.read_text()
-        assert "Test Episode 0" in content
-        assert "Test Episode 1" in content 
+        assert "Test Episode 0" in results_file.read_text()
+        assert "Test Episode 1" in results_file.read_text() 

@@ -7,26 +7,31 @@ This module handles:
 """
 import json
 import logging
-import os
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 import openai
 
+from src import config
 from src.models import Episode
 from src.storage import get_connection, get_episodes
 from .prompt import construct_prompt, validate_tags, load_taxonomy
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Get module logger
 logger = logging.getLogger(__name__)
 
-def tag_episode(episode: Episode, taxonomy: Dict[str, List[str]], dry_run: bool = False) -> Optional[Dict[str, List[str]]]:
+def tag_episode(
+    episode: Episode,
+    taxonomy: Dict[str, List[str]],
+    dry_run: bool = False,
+    limit: Optional[int] = None  # Not used for single episode
+) -> Optional[Dict[str, List[str]]]:
     """Tag a single episode using OpenAI.
     
     Args:
         episode: Episode to tag
         taxonomy: Dictionary of valid tags by category
         dry_run: If True, don't save changes to database
+        limit: Not used for single episode tagging
         
     Returns:
         Dictionary of assigned tags by category, or None if tagging fails
@@ -48,14 +53,16 @@ def tag_episode(episode: Episode, taxonomy: Dict[str, List[str]], dry_run: bool 
             return None
             
         # Call OpenAI API
-        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        client = openai.OpenAI(api_key=config.get_openai_api_key())
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=config.OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": "You are a history podcast episode tagger."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.0  # Use deterministic output
+            temperature=0.0,  # Use deterministic output
+            timeout=config.API_TIMEOUT,
+            max_retries=config.API_MAX_RETRIES
         )
         
         # Parse and validate tags
@@ -89,6 +96,34 @@ def tag_episode(episode: Episode, taxonomy: Dict[str, List[str]], dry_run: bool 
     except Exception as e:
         logger.error("Error tagging episode %s: %s", episode.guid, str(e))
         return None
+
+def process_episodes(
+    taxonomy: Dict[str, List[str]],
+    limit: Optional[int] = config.DEFAULT_LIMIT,
+    dry_run: bool = False
+) -> List[Dict[str, List[str]]]:
+    """Process multiple episodes for tagging.
+    
+    Args:
+        taxonomy: Dictionary of valid tags by category
+        limit: Maximum number of episodes to process
+        dry_run: If True, don't save changes to database
+        
+    Returns:
+        List of successful tagging results
+    """
+    episodes = get_episodes(limit=limit)
+    if not episodes:
+        logger.info("No episodes found for tagging")
+        return []
+        
+    results = []
+    for episode in episodes:
+        tags = tag_episode(episode, taxonomy, dry_run)
+        if tags:
+            results.append(tags)
+            
+    return results
 
 def get_all_episodes(limit: Optional[int] = None) -> List[Episode]:
     """Get all episodes for tagging.

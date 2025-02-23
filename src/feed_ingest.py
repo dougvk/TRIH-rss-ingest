@@ -13,12 +13,40 @@ Performance characteristics:
 """
 from datetime import datetime
 import requests
-from typing import List
+from typing import List, Optional
 from lxml import etree
 import re
+import logging
 
 from src import config
 from src.models import Episode
+
+# Get module logger
+logger = logging.getLogger(__name__)
+
+def extract_episode_number(title: str) -> Optional[int]:
+    """Extract episode number from title.
+    
+    Args:
+        title: Episode title
+        
+    Returns:
+        Episode number if found, None otherwise
+        
+    Example:
+        >>> extract_episode_number("The French Revolution (Ep 3)")
+        3
+        >>> extract_episode_number("Regular Episode")
+        None
+    """
+    # Look for (Ep X) pattern
+    match = re.search(r'\(Ep\s*(\d+)\)', title, re.IGNORECASE)
+    if match:
+        try:
+            return int(match.group(1))
+        except ValueError:
+            return None
+    return None
 
 def fetch_rss_feed() -> str:
     """Fetch RSS feed content from configured URL.
@@ -43,20 +71,19 @@ def fetch_rss_feed() -> str:
     if not url:
         raise ValueError("RSS feed URL not configured")
         
-    response = requests.get(url, timeout=30)
+    response = requests.get(url, timeout=config.FEED_FETCH_TIMEOUT)
     response.raise_for_status()
     
     return response.text
 
 def parse_rss_feed(content: str) -> List[Episode]:
-    """Parse RSS feed content into Episode objects.
+    """Parse RSS feed XML content into Episode objects.
     
-    This function:
-        - Uses lxml for efficient XML parsing
-        - Handles podcast-specific fields (duration, audio URL)
-        - Converts dates to timezone-aware datetime objects
-        - Validates required fields
-        - Extracts episode numbers from titles
+    This function handles:
+        - XML parsing with lxml
+        - Timezone-aware dates
+        - Required and optional fields
+        - Data validation
     
     Args:
         content: Raw XML content of the feed
@@ -65,131 +92,69 @@ def parse_rss_feed(content: str) -> List[Episode]:
         List[Episode]: List of parsed episodes
         
     Raises:
-        ValueError: If feed content is invalid or required fields are missing
-        etree.ParseError: If XML content is malformed
+        ValueError: If feed is empty or invalid
         
     Example:
-        >>> content = '''<?xml version="1.0"?>
-        ... <rss version="2.0">
-        ...   <channel>
-        ...     <item>
-        ...       <title>Test Episode</title>
-        ...       <description>Description</description>
-        ...       <guid>123</guid>
-        ...       <pubDate>Mon, 01 Jan 2024 12:00:00 +0000</pubDate>
-        ...     </item>
-        ...   </channel>
-        ... </rss>'''
+        >>> content = fetch_rss_feed()
         >>> episodes = parse_rss_feed(content)
-        >>> print(episodes[0].title)
-        'Test Episode'
+        >>> print(f"Found {len(episodes)} episodes")
     """
     try:
-        # Parse XML content
-        parser = etree.XMLParser(recover=True)
-        root = etree.fromstring(content.encode('utf-8'), parser=parser)
+        # Parse XML
+        root = etree.fromstring(content.encode())
         
-        # Find all item elements (episodes)
-        items = root.findall('.//item')
+        # Extract episodes
+        episodes = []
+        items = root.xpath("//item")
+        
         if not items:
             raise ValueError("No episodes found in feed")
-        
-        episodes = []
-        for i, item in enumerate(items):
-            # Helper function to safely get text content
-            def get_text(element, default: str = '') -> str:
-                return (element.text or default) if element is not None else default
             
-            # Get required fields
-            title = get_text(item.find('title'))
-            
-            # Debug first few episodes
-            if i < 5:
-                print(f"\n=== Processing episode {i} ===")
-                print(f"Title: {title}")
-                print(f"Looking for episode number in: {title}")
-                
-                # Try all patterns for debugging
-                patterns = [
-                    (r'\(Ep\s*(\d+)\)', '(Ep X)'),
-                    (r'\(Part\s*(\d+)\)', '(Part X)'),
-                    (r'Part\s*(\d+)', 'Part X'),
-                    (r'Episode\s*(\d+)', 'Episode X')
-                ]
-                
-                for pattern, desc in patterns:
-                    match = re.search(pattern, title, re.IGNORECASE)
-                    if match:
-                        print(f"Found {desc} pattern: {match.group(1)}")
-            
-            description = get_text(item.find('description'))
-            link = get_text(item.find('link'))
-            guid = get_text(item.find('guid'))
-            pub_date = get_text(item.find('pubDate'))
-            
-            # Optional fields - handle namespaces explicitly
-            duration = None
-            duration_elem = item.find('.//{http://www.itunes.com/dtds/podcast-1.0.dtd}duration')
-            if duration_elem is not None:
-                duration = duration_elem.text
-            
-            # Get audio URL from enclosure
-            audio_url = None
-            enclosure = item.find('enclosure')
-            if enclosure is not None:
-                audio_url = enclosure.get('url')
-            
-            # Parse the publication date
+        for item in items:
             try:
-                published_date = datetime.strptime(pub_date, "%a, %d %b %Y %H:%M:%S %z")
-            except ValueError as e:
-                raise ValueError(f"Invalid date format in feed: {pub_date}") from e
-            
-            # Extract episode number from title
-            episode_number = None
-            
-            # Debug log
-            print(f"\nProcessing title: {title}")
-            print(f"Looking for episode number in: {title}")
-            
-            # Only look for (Ep X) pattern as that's the authoritative source
-            match = re.search(r'\(Ep\s*(\d+)\)', title, re.IGNORECASE)
-            if match:
-                try:
-                    episode_number = int(match.group(1))
-                    print(f"✓ Found series episode number {episode_number} from pattern '(Ep X)'")
-                except (IndexError, ValueError) as e:
-                    print(f"✗ Failed to extract number from match: {e}")
-            else:
-                print(f"✗ No '(Ep X)' pattern found in title")
+                # Required fields
+                guid = item.xpath("guid/text()")[0]
+                title = item.xpath("title/text()")[0]
+                description = item.xpath("description/text()")[0]
+                pub_date = item.xpath("pubDate/text()")[0]
                 
-                # Try other patterns for debugging
-                other_patterns = [
-                    (r'\(Part\s*(\d+)\)', '(Part X)'),
-                    (r'Part\s*(\d+)', 'Part X'),
-                    (r'Episode\s*(\d+)', 'Episode X')
-                ]
+                # Optional fields
+                link = item.xpath("link/text()")
+                link = link[0] if link else ''
                 
-                for pattern, desc in other_patterns:
-                    match = re.search(pattern, title, re.IGNORECASE)
-                    if match:
-                        print(f"! Found {desc} pattern but not using it: {match.group(1)}")
-            
-            print(f"Final episode_number value: {episode_number}")
-            
-            episode = Episode(
-                title=title,
-                description=description,
-                link=link,
-                published_date=published_date,
-                guid=guid,
-                duration=duration,
-                audio_url=audio_url,
-                episode_number=episode_number
-            )
-            episodes.append(episode)
-        
+                duration = item.xpath("itunes:duration/text()", 
+                    namespaces={"itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd"})
+                duration = duration[0] if duration else None
+                
+                audio_url = item.xpath("enclosure/@url")
+                audio_url = audio_url[0] if audio_url else None
+                
+                # Parse publication date
+                published_date = datetime.strptime(
+                    pub_date,
+                    "%a, %d %b %Y %H:%M:%S %z"
+                )
+                
+                # Extract episode number from title
+                episode_number = extract_episode_number(title)
+                
+                episode = Episode(
+                    guid=guid,
+                    title=title,
+                    description=description,
+                    link=link,
+                    published_date=published_date,
+                    duration=duration,
+                    audio_url=audio_url,
+                    episode_number=episode_number
+                )
+                episodes.append(episode)
+            except (IndexError, ValueError) as e:
+                logger.warning("Failed to parse episode: %s", e)
+                continue
+                
         return episodes
         
-    except etree.ParseError as e:
-        raise ValueError(f"Invalid XML content: {str(e)}") 
+    except Exception as e:
+        logger.error("Failed to parse feed content: %s", e)
+        raise 

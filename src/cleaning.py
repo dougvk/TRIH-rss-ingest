@@ -114,9 +114,9 @@ def clean_with_openai(text: str, title: str, dry_run: bool = False) -> Optional[
         return None
         
     try:
-        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        client = openai.OpenAI(api_key=config.get_openai_api_key())
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # Using GPT-4 Mini for efficient cleaning
+            model=config.OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": """You are a content cleaner for podcast episode descriptions. 
                 Remove all promotional content, advertisements, social media links, and production credits.
@@ -126,19 +126,26 @@ def clean_with_openai(text: str, title: str, dry_run: bool = False) -> Optional[
                 Pay special attention to content that matches or relates to the episode title."""},
                 {"role": "user", "content": f"Clean this episode description for episode titled '{title}':\n\n{text}"}
             ],
-            temperature=0.0  # Use deterministic output
+            temperature=0.0,  # Use deterministic output
+            timeout=config.API_TIMEOUT,
+            max_retries=config.API_MAX_RETRIES
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
         logger.error("OpenAI API error: %s", str(e))
         return None
 
-def clean_episode(guid: str, dry_run: bool = False) -> Optional[CleaningResult]:
+def clean_episode(
+    guid: str,
+    dry_run: bool = False,
+    limit: Optional[int] = None
+) -> Optional[CleaningResult]:
     """Clean a single episode's description.
     
     Args:
         guid: Episode GUID to clean
         dry_run: If True, don't save changes to database
+        limit: Not used for single episode cleaning
         
     Returns:
         CleaningResult if successful, None if failed
@@ -180,6 +187,32 @@ def clean_episode(guid: str, dry_run: bool = False) -> Optional[CleaningResult]:
             ))
             
     return result
+
+def process_episodes(
+    limit: Optional[int] = config.DEFAULT_LIMIT,
+    dry_run: bool = False
+) -> List[CleaningResult]:
+    """Process multiple episodes for cleaning.
+    
+    Args:
+        limit: Maximum number of episodes to process
+        dry_run: If True, don't save changes to database
+        
+    Returns:
+        List of successful cleaning results
+    """
+    episodes = get_episodes(limit=limit)
+    if not episodes:
+        logger.info("No episodes found for cleaning")
+        return []
+        
+    results = []
+    for episode in episodes:
+        result = clean_episode(episode.guid, dry_run)
+        if result:
+            results.append(result)
+            
+    return results
 
 def get_sample_episodes(sample_size: int | None = 10) -> List[str]:
     """Get a random sample of episode GUIDs for cleaning.
