@@ -56,3 +56,6 @@ coverage.xml
 
 # Cleaning results
 cleaning_results_*.txt 
+
+# Episode content
+episode_content.txt 
