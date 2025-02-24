@@ -2,7 +2,7 @@
 import logging
 import argparse
 
-from src.cleaning import clean_episode, process_episodes, get_episodes
+from src.cleaning import clean_episode, process_episodes
 from .base import Command
 from .registry import register
 
@@ -101,9 +101,6 @@ class CleanCommand(Command):
             
             # Clean multiple episodes
             logger.info("Cleaning episodes (limit: %s)", self.limit or "none")
-            episodes = get_episodes(limit=self.limit)
-            logger.info("Would process %d episodes", len(episodes))
-            
             results = process_episodes(
                 limit=self.limit,
                 dry_run=self.dry_run
@@ -111,7 +108,6 @@ class CleanCommand(Command):
             if self.dry_run:
                 self._execution_success = True
                 return True
-                
             success = bool(results)  # Return True if any episodes were cleaned
             self._execution_success = success
             logger.info("Successfully cleaned %d episodes", len(results))

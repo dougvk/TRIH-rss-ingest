@@ -1,108 +1,176 @@
-# Project Outline: RSS Feed Processor
+# Project Outline – Podcast RSS Feed Processor
 
 ## Overview
-The RSS Feed Processor is a Python application that ingests a private podcast RSS feed, parses its XML content, and stores episode data in a SQLite database. In addition, the application supports AI-powered processing for:
-- Cleaning episode descriptions (removing promotional content via regex and OpenAI API)
-- Tagging episodes with thematic categories and curated tracks based on a predefined taxonomy
 
-The application now features a comprehensive CLI for all operations and robust safety measures to protect production data.
+The Podcast RSS Feed Processor is a modular Python application that ingests, cleans, tags, and stores podcast RSS feed data. It leverages AI to clean and tag episode content and provides a robust command-line interface (CLI) to control these operations. The system is designed for rapid processing, reliable error handling, and easy extensibility.
 
 ## Directory Structure
 
 dougvk-trih-rss-ingest/
-├── README.md                         # Project overview, features, installation, usage, and deployment tips.
-├── DEVELOPMENT_PLAN.md               # Roadmap of past and future development phases.
-├── IDEAS.md                          # Ideas for future enhancements.
-├── PRD.md                            # Comprehensive Product Requirements Document covering feed ingestion, cleaning, tagging, and validation.
-├── requirements.txt                  # Python dependencies.
-├── .env.template                     # Template for environment variables (e.g. RSS_FEED_URL).
-├── scripts/                          # Legacy utility scripts (now replaced by CLI).
-├── src/                              # Core application modules.
-│   ├── init.py
-│   ├── cli.py                        # Command line interface for all operations.
-│   ├── cleaning.py                   # Implements content cleaning using regex and OpenAI API.
-│   ├── config.py                     # Loads environment variables, sets up base paths, and manages configuration.
-│   ├── feed_ingest.py                # Fetches the RSS feed and parses it using lxml.
-│   ├── main.py                       # Main orchestration module that ties together ingestion, parsing, and storage.
-│   ├── models.py                     # Defines the Episode dataclass and other data models.
-│   ├── storage.py                    # Handles SQLite database operations (initialization, CRUD, and indexing).
-│   └── tagging/                      # AI-based tagging submodule.
-│       ├── Tagging-Episodes-Framework.md  # Tag taxonomy and curated track suggestions.
-│       ├── init.py
-│       ├── processor.py              # Batch processing for tagging episodes.
-│       ├── prompt.py                 # Constructs prompts by loading and parsing the taxonomy.
-│       └── tagger.py                 # Integrates with the OpenAI API to generate and validate tags.
-├── tests/                            # Automated test suite (unit, integration, and performance tests).
-│   ├── init.py
-│   ├── conftest.py                   # Shared test fixtures and database isolation.
-│   ├── test_cli.py                   # Tests for CLI functionality.
-│   ├── test_config.py                # Tests for configuration and environment variable handling.
-│   ├── test_feed_ingest.py           # Tests for feed fetching and parsing.
-│   ├── test_integration.py           # End-to-end integration tests using a mock feed.
-│   ├── test_main.py                  # Tests for main orchestration.
-│   ├── test_storage.py               # Tests for database operations.
-│   └── test_tagging.py               # Tests for tagging functionality.
-└── .cursor/                          # Coding standards and implementation rules.
-└── rules/
-├── feed-ingestion.mdc        # Guidelines for feed ingestion implementation.
-├── general.mdc               # General coding, configuration, and testing guidelines.
-└── storage.mdc               # Rules for SQLite storage and schema management.
+├── README.md                   # Overview, installation, usage, and deployment instructions.
+├── IDEAS.md                    # Future enhancement ideas.
+├── PRD.md                      # Detailed Product Requirements Document.
+├── Project Outline.md          # This document.
+├── requirements.txt            # Python dependencies.
+├── .env.template               # Template for environment configuration.
+├── src/                        # Core application source code.
+│   ├── init.py             # Package initializer.
+│   ├── config.py               # Configuration management.
+│   ├── feed_ingest.py          # RSS feed fetching and parsing.
+│   ├── cleaning.py             # Two-stage cleaning (regex and AI-based).
+│   ├── models.py               # Data models (Episode dataclass, etc.).
+│   ├── storage.py              # SQLite database operations.
+│   ├── openai_client.py        # OpenAI API integration.
+│   ├── cli.py                  # Primary CLI entry point.
+│   ├── cli/                    # CLI submodule.
+│   │   ├── init.py         # CLI package initializer.
+│   │   ├── main.py             # CLI application entry point.
+│   │   ├── utils.py            # CLI utility functions.
+│   │   └── commands/           # Individual CLI command implementations.
+│   │       ├── base.py         # Base class for CLI commands.
+│   │       ├── ingest.py       # Command for feed ingestion.
+│   │       ├── clean.py        # Command for cleaning episode descriptions.
+│   │       ├── tag.py          # Command for tagging episodes.
+│   │       ├── export.py       # Command for exporting episode data.
+│   │       ├── validate.py     # Command for validating episode tags.
+│   │       └── registry.py     # Registry for CLI commands.
+│   └── tagging/                # AI-based tagging modules.
+│       ├── init.py         # Tagging package initializer.
+│       ├── processor.py        # Batch processing for tagging.
+│       ├── prompt.py           # Prompt construction for OpenAI.
+│       ├── tagger.py           # Integration with OpenAI for generating tags.
+│       ├── taxonomy.py         # Taxonomy management (tag definitions and validation).
+│       └── taxonomy/           # Detailed taxonomy submodule.
+│           ├── init.py
+│           ├── constants.py    # Taxonomy constants.
+│           ├── schema.py       # Tag set type definitions and schema.
+│           ├── structure.py    # Structured taxonomy with validation rules.
+│           ├── taxonomy.py     # Core taxonomy logic and singleton instance.
+│           └── testing.py      # Taxonomy testing utilities.
+├── tests/                      # Automated tests (unit, integration, CLI, and performance).
+│   ├── init.py             # Test package initializer.
+│   ├── conftest.py            # Shared fixtures and test configuration.
+│   ├── test_config.py         # Tests for configuration management.
+│   ├── test_feed_ingest.py    # Tests for RSS feed ingestion.
+│   ├── test_storage.py        # Tests for SQLite database operations.
+│   ├── test_tagging.py        # Tests for AI tagging functionality.
+│   ├── test_integration.py    # End-to-end integration tests.
+│   └── cli/                   # CLI command tests.
+│       ├── test_base.py
+│       ├── test_clean.py
+│       ├── test_export.py
+│       ├── test_ingest.py
+│       ├── test_main.py
+│       ├── test_tag.py
+│       └── test_validate.py
+└── .cursor/                    # Coding rules and guidelines.
+├── rules/
+│   ├── feed-ingestion.mdc # Guidelines for RSS feed ingestion.
+│   ├── general.mdc        # Coding style, configuration, and testing guidelines.
+│   └── storage.mdc        # Guidelines for SQLite storage operations.
 
-## Detailed Component Explanations
+## Detailed Component Breakdown
 
-### Command Line Interface (cli.py)
-The new CLI module provides a unified interface for all operations:
-- **Environment Control**: Switches between production and test databases
-- **Commands**:
-  - `ingest`: Fetch and store feed data with optional limits
-  - `clean`: Remove promotional content from descriptions
-  - `tag`: Apply taxonomy tags to episodes
-  - `export`: Export episode data to JSON
-- **Safety Features**:
-  - Dry run mode for all data-modifying operations
-  - Batch size limits for testing
-  - Single episode processing by GUID
-  - Environment validation
-  - Error handling and logging
+### 1. Feed Ingestion
+- **Module:** `src/feed_ingest.py`
+- **Description:**  
+  - Fetches RSS feed content via HTTP (or local files) and parses XML using `lxml`.  
+  - Extracts required episode data such as GUID, title, description, link, publication date, duration, and audio URL.  
+  - Includes robust error handling for network or XML parsing errors.
 
-### Feed Processing (feed_ingest.py)
-- **Performance**: Optimized for large feeds (729+ episodes)
-- **Parsing**: Uses lxml for efficient XML processing
-- **Fields**: Handles required and optional podcast fields
-- **Safety**: Configurable timeouts and validation
-- **Testing**: Supports episode limits for testing
+### 2. Content Cleaning
+- **Module:** `src/cleaning.py`
+- **Description:**  
+  - Implements a two-stage cleaning process:  
+    1. Regex-based filtering removes known promotional patterns (e.g., social media links, tour announcements).  
+    2. An AI-based step (using OpenAI API) cleans remaining extraneous content while preserving historical information.
+  - Supports both dry-run and batch cleaning modes.
 
-### Content Cleaning (cleaning.py)
-- **Two-Step Process**:
-  1. Regex-based cleaning with 40+ patterns
-  2. AI-powered cleaning using OpenAI
-- **Pattern Categories**: Social media, live shows, credits, etc.
-- **Data Tracking**: Status, timestamps, and modification flags
-- **Safety**: Dry run mode and batch limits
+### 3. Episode Tagging
+- **Modules:** `src/tagging/` (including `tagger.py`, `prompt.py`, and `taxonomy.py`)
+- **Description:**  
+  - Constructs prompts based on episode title and description for use with the OpenAI API.  
+  - Uses AI to generate a set of tags that conform to a strict taxonomy.  
+  - Updates the database with the validated tags and extracts episode numbers when applicable.
 
-### Episode Tagging (tagging/)
-- **AI Integration**: Uses OpenAI for intelligent tagging
-- **Taxonomy**: Structured categorization system
-- **Categories**: Format, Theme, Track, Episode Number
-- **Validation**: Tag verification before storage
-- **Safety**: Dry run mode and batch processing
+### 4. Tagging Taxonomy
 
-### Database Management (storage.py)
-- **Environments**: Separate production and test databases
-- **Schema**: Optimized for episode metadata and tags
-- **Safety**: Transaction support and error handling
-- **Performance**: Indexed queries and efficient storage
+The tagging taxonomy is defined as follows:
 
-### Testing Framework (tests/)
-- **Coverage**: Unit and integration tests for all modules
-- **Database**: Test isolation with separate database
-- **Fixtures**: Mock data and shared test utilities
-- **Safety**: Prevents production data modification
+#### Format Tags
+- **Series Episodes**
+- **Standalone Episodes**
+- **RIHC Series**
 
-## Database Environments
-The application now fully supports separate environments:
-- **Production Database**: For live data (`data/episodes.db`)
-- **Test Database**: For testing and development (`data/test.db`)
-- **Environment Selection**: Via `--env` flag in CLI
-- **Data Protection**: Test operations cannot affect production data
-- **Database Copying**: Test database can be initialized from production
+#### Theme Tags
+- **Ancient & Classical Civilizations**
+- **Medieval & Renaissance Europe**
+- **Empire, Colonialism & Exploration**
+- **Modern Political History & Leadership**
+- **Military History & Battles**
+- **Cultural, Social & Intellectual History**
+- **Science, Technology & Economic History**
+- **Religious, Ideological & Philosophical History**
+- **Historical Mysteries, Conspiracies & Scandals**
+- **Regional & National Histories**
+
+#### Track Tags
+- **Roman Track**
+- **Medieval & Renaissance Track**
+- **Colonialism & Exploration Track**
+- **American History Track**
+- **Military & Battles Track**
+- **Modern Political History Track**
+- **Cultural & Social History Track**
+- **Science, Technology & Economic History Track**
+- **Religious & Ideological History Track**
+- **Historical Mysteries & Conspiracies Track**
+- **British History Track**
+- **Global Empires Track**
+- **World Wars Track**
+- **Ancient Civilizations Track**
+- **Regional Spotlight: Latin America Track**
+- **Regional Spotlight: Asia & the Middle East Track**
+- **Regional Spotlight: Europe Track**
+- **Regional Spotlight: Africa Track**
+- **Historical Figures Track**
+- **The RIHC Bonus Track**
+- **Archive Editions Track**
+- **Contemporary Issues Through History Track**
+
+*Note:* The taxonomy rules enforce that, for example, if an episode is tagged as "RIHC Series" then it must also have "Series Episodes" in its Format.
+
+### 5. Data Storage
+- **Module:** `src/storage.py`
+- **Description:**  
+  - Initializes and manages the SQLite database.  
+  - Provides CRUD operations with transaction safety and rollback on errors.  
+  - Creates indexes on key fields (e.g., GUID, publication date) for efficient querying.
+
+### 6. Configuration
+- **Module:** `src/config.py`
+- **Description:**  
+  - Loads environment variables from a `.env` file (using `python-dotenv`).  
+  - Manages paths for data storage and validates required settings such as `RSS_FEED_URL` and `OPENAI_API_KEY`.
+
+### 7. Command-Line Interface (CLI)
+- **Modules:** `src/cli/` and `src/cli/commands/`
+- **Description:**  
+  - Provides a set of commands using Python’s `argparse` to perform key operations:
+    - **ingest:** Fetches and stores RSS feed data.
+    - **clean:** Cleans episode descriptions.
+    - **tag:** Tags episodes using the AI-driven taxonomy.
+    - **export:** Exports episode data in JSON or CSV format.
+    - **validate:** Validates episode tags against the taxonomy and can generate a detailed report.
+  - Supports global flags for environment selection, dry-run mode, and debug output.
+
+### 8. Testing Framework
+- **Directory:** `tests/`
+- **Description:**  
+  - Contains unit tests for each module, integration tests, and CLI command tests.  
+  - Uses fixtures for temporary databases and mocks for external API calls to ensure reliable test runs.
+
+### 9. Coding Guidelines & Standards
+- **Directory:** `.cursor/rules/`
+- **Description:**  
+  - Provides implementation rules for feed ingestion, general coding standards (PEP 8), and SQLite storage best practices.

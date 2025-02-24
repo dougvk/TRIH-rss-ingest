@@ -135,8 +135,8 @@ def test_tag_command_cli(test_db):
     # Test dry run
     result = main([
         "--env", "test",
-        "--dry-run",
         "tag",
+        "--dry-run",
         "--guid", real_guid
     ])
     assert result == 0 

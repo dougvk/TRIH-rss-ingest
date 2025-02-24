@@ -1,177 +1,169 @@
-# Podcast Feed Processor - Complete PRD
+# Podcast RSS Feed Processor – Product Requirements Document (PRD)
 
 ## Overview
 
-The Podcast Feed Processor is a comprehensive application designed to:
-1. Ingest a private podcast RSS feed
-2. Parse and store episode details
-3. Clean episode descriptions by removing promotional content
-4. Tag episodes with themes and tracks for content organization
-5. Validate tag consistency and series numbering
+The Podcast RSS Feed Processor is a high-performance, Python‐based application designed to ingest private podcast RSS feeds, parse and clean episode content, and automatically tag episodes using AI. It stores the processed data in a local SQLite database and provides a comprehensive command-line interface (CLI) to control each operation. The system emphasizes reliability, speed, and extensibility while leveraging AI (via OpenAI models) for advanced content cleaning and taxonomy-based tagging.
 
-The application focuses on performance, reliability, and maintainability, successfully handling feeds with hundreds of episodes.
+## Problem Statement
+
+Many podcasters and private feed curators need a robust solution that:
+- Efficiently ingests and parses large RSS feeds.
+- Removes unwanted promotional material and formatting inconsistencies from episode descriptions.
+- Automatically categorizes and tags episodes based on historical themes and content—reducing manual curation.
+- Provides an auditable, high-performance storage mechanism for rapid querying and future integrations.
+
+## Goals
+
+1. **Reliable Feed Ingestion**
+   - Securely fetch RSS feed content (supporting both remote and local sources).
+   - Parse the feed with robust error handling using the `lxml` library.
+   - Extract essential fields (title, description, link, publication date, duration, audio URL, etc.).
+
+2. **Content Cleaning**
+   - Remove promotional content and extraneous formatting via a two-step cleaning process:
+     - Regex-based filtering for known patterns.
+     - AI-based content cleaning using OpenAI’s API for context-sensitive removal.
+   - Track cleaning status, timestamps, and preserve both original and cleaned versions.
+
+3. **Episode Tagging**
+   - Utilize a predefined taxonomy to assign tags for Format, Theme, and Track.
+   - Automatically extract episode numbers from titles when applicable.
+   - Validate and enforce tagging rules to ensure consistency across episodes.
+
+4. **Data Storage & Performance**
+   - Store episodes in a SQLite database with well-designed indexes for fast retrieval.
+   - Provide mechanisms to update episodes on duplicate detection.
+   - Achieve rapid processing even for feeds with hundreds of episodes.
+
+5. **Command-Line Interface (CLI)**
+   - Support operations for feed ingestion, cleaning, tagging, exporting, and tag validation.
+   - Offer dry-run modes, batch processing, and single-episode operations.
+   - Allow switching safely between production and test environments.
+
+6. **Testing & Maintainability**
+   - Include a comprehensive test suite (unit, integration, and performance tests).
+   - Follow strict coding standards and guidelines to ensure consistent implementation.
+   - Facilitate future enhancements with minimal friction.
 
 ## Core Features
 
-### 1. Feed Processing
-- **Data Ingestion:** Securely fetch private RSS feed with HTTP authentication
-- **Data Parsing:** Extract episode metadata using `lxml`
-- **Data Storage:** Persist data in SQLite with efficient indexing
-- **Performance:** Process 729 episodes in ~1.1 seconds total
-
-### 2. Content Cleaning
-- **AI-Powered Cleaning:** Use GPT-4O Mini to remove promotional content
-- **Content Preservation:** Maintain historical and episode-specific content
-- **Quality Control:** Track changes and allow manual verification
-- **Progressive Rollout:** Scale from small samples to full database
-
-### 3. Episode Tagging
-- **AI Tag Generation:** Use GPT-3.5-turbo with custom taxonomy
-- **Structured Tags:** Format, Theme, and Track categorization
-- **Series Management:** Handle episode numbering and series identification
-- **Tag Validation:** Ensure consistency and completeness
+- **Feed Ingestion:** Securely fetch and parse RSS feeds (including iTunes-specific fields) with robust error handling.
+- **Content Cleaning:** Apply a two-stage cleaning process (regex and OpenAI API) to remove promotional and irrelevant content.
+- **Episode Tagging:** Automatically assign taxonomy-based tags (Format, Theme, Track) and extract episode numbers when needed.
+- **Database Storage:** Use SQLite to store and index episode data with duplicate handling and efficient queries.
+- **CLI Operations:** Provide commands for ingestion, cleaning, tagging, exporting data (JSON/CSV), and validating tag integrity.
+- **Performance & Reliability:** Achieve high processing speed with detailed logging and error handling for both production and test environments.
 
 ## Database Schema
 
-```sql
-CREATE TABLE episodes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    guid TEXT UNIQUE NOT NULL,
-    title TEXT NOT NULL,
-    description TEXT NOT NULL,
-    link TEXT NOT NULL,
-    published_date TIMESTAMP NOT NULL,
-    duration TEXT,
-    audio_url TEXT,
-    cleaned_description TEXT,
-    cleaning_timestamp TIMESTAMP,
-    cleaning_status TEXT DEFAULT "pending",
-    tags TEXT,
-    tagging_timestamp TIMESTAMP,
-    episode_number INTEGER,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+The SQLite database (typically at `data/episodes.db`) contains an `episodes` table with fields such as:
 
-CREATE INDEX idx_episodes_guid ON episodes(guid);
-CREATE INDEX idx_episodes_published_date ON episodes(published_date);
-CREATE INDEX idx_episodes_cleaning_status ON episodes(cleaning_status);
-CREATE INDEX idx_episodes_tags ON episodes(tags);
-CREATE INDEX idx_episodes_episode_number ON episodes(episode_number);
-```
+- **id:** INTEGER PRIMARY KEY AUTOINCREMENT  
+- **guid:** TEXT UNIQUE – a unique identifier for each episode  
+- **title:** TEXT – episode title  
+- **description:** TEXT – original episode description  
+- **cleaned_description:** TEXT – cleaned version of the description  
+- **link:** TEXT – episode web link  
+- **published_date:** TIMESTAMP – publication date (timezone-aware)  
+- **duration:** TEXT – episode duration  
+- **audio_url:** TEXT – URL to the audio file  
+- **cleaning_timestamp:** TIMESTAMP – when cleaning was performed  
+- **cleaning_status:** TEXT – status of the cleaning process (e.g., “pending”, “cleaned”)  
+- **tags:** TEXT – JSON string storing taxonomy tags  
+- **tagging_timestamp:** TIMESTAMP – when tagging was applied  
+- **episode_number:** INTEGER – extracted episode number (if applicable)  
+- **created_at / updated_at:** TIMESTAMP – record creation and update timestamps  
 
-## Tag Taxonomy
+Indexes are defined on fields such as `guid`, `published_date`, `cleaning_status`, `tags`, and `episode_number` to ensure fast lookups.
+
+## Tagging Taxonomy
+
+The system uses a strict taxonomy to standardize tagging. The taxonomy is divided into three main categories:
 
 ### Format Tags
-- Series Episodes
-- Standalone Episodes
-- RIHC Series
+- **Series Episodes**
+- **Standalone Episodes**
+- **RIHC Series**
 
 ### Theme Tags
-- Ancient & Classical Civilizations
-- Medieval & Renaissance Europe
-- Empire, Colonialism & Exploration
-- Modern Political History & Leadership
-- Military History & Battles
-- Cultural, Social & Intellectual History
-- Science, Technology & Economic History
-- Religious, Ideological & Philosophical History
-- Historical Mysteries, Conspiracies & Scandals
-- Regional & National Histories
+- **Ancient & Classical Civilizations**
+- **Medieval & Renaissance Europe**
+- **Empire, Colonialism & Exploration**
+- **Modern Political History & Leadership**
+- **Military History & Battles**
+- **Cultural, Social & Intellectual History**
+- **Science, Technology & Economic History**
+- **Religious, Ideological & Philosophical History**
+- **Historical Mysteries, Conspiracies & Scandals**
+- **Regional & National Histories**
 
 ### Track Tags
-- Roman Track
-- Medieval & Renaissance Track
-- Colonialism & Exploration Track
-- American History Track
-- Military & Battles Track
-- Modern Political History Track
-- Cultural & Social History Track
-- Science, Technology & Economic History Track
-- Religious & Ideological History Track
-- Historical Mysteries & Conspiracies Track
-- British History Track
-- Global Empires Track
-- World Wars Track
-- Ancient Civilizations Track
-- Regional Spotlight: Latin America Track
-- Regional Spotlight: Asia & the Middle East Track
-- Regional Spotlight: Europe Track
-- Regional Spotlight: Africa Track
-- Historical Figures Track
-- The RIHC Bonus Track
-- Archive Editions Track
-- Contemporary Issues Through History Track
+- **Roman Track**
+- **Medieval & Renaissance Track**
+- **Colonialism & Exploration Track**
+- **American History Track**
+- **Military & Battles Track**
+- **Modern Political History Track**
+- **Cultural & Social History Track**
+- **Science, Technology & Economic History Track**
+- **Religious & Ideological History Track**
+- **Historical Mysteries & Conspiracies Track**
+- **British History Track**
+- **Global Empires Track**
+- **World Wars Track**
+- **Ancient Civilizations Track**
+- **Regional Spotlight: Latin America Track**
+- **Regional Spotlight: Asia & the Middle East Track**
+- **Regional Spotlight: Europe Track**
+- **Regional Spotlight: Africa Track**
+- **Historical Figures Track**
+- **The RIHC Bonus Track**
+- **Archive Editions Track**
+- **Contemporary Issues Through History Track**
 
-## Tagging Rules
+*Note:* Specific rules (e.g., if an episode is tagged as "RIHC Series" it must also have "Series Episodes") ensure consistency across the dataset.
 
-1. **Format Rules:**
-   - Episodes must have exactly one Format tag
-   - RIHC episodes must have both "RIHC Series" and "Series Episodes" tags
-   - Episodes with part/episode numbers must be "Series Episodes"
+## CLI Command Overview
 
-2. **Series Rules:**
-   - Non-RIHC series episodes must have an episode number
-   - Episode numbers must form complete sequences without gaps
-   - Episode numbers start from the lowest number in the series
+The application exposes a rich CLI with the following commands:
 
-3. **Theme & Track Rules:**
-   - Episodes must have at least one Theme tag
-   - Episodes must have at least one Track tag
-   - All tags must match the taxonomy exactly
+- **ingest:**  
+  - **Purpose:** Fetch and store RSS feed data.
+  - **Details:** Retrieves feed content using HTTP (or from a file), parses the XML to extract episode information, and stores episodes into the SQLite database. Supports optional limits for testing.
 
-## Performance Metrics
+- **clean:**  
+  - **Purpose:** Clean episode descriptions.
+  - **Details:** Uses a two-stage cleaning process. First, it applies regex patterns to remove known promotional text and extraneous data; then it calls the OpenAI API for context-sensitive cleaning. Supports single-episode cleaning by GUID as well as batch processing with a limit.
 
-### Feed Processing
-- Feed Fetch: ~1.0 seconds
-- XML Parse: ~0.03 seconds
-- DB Storage: ~0.01 seconds
-- Total Time: ~1.1 seconds
+- **tag:**  
+  - **Purpose:** Tag episodes using the predefined taxonomy.
+  - **Details:** Constructs a prompt from the episode title and (cleaned) description, sends it to the OpenAI API, and processes the returned JSON to update the episode’s tags in the database. Can tag a single episode by GUID or process multiple episodes in a batch.
 
-### Content Cleaning
-- Average reduction in description length: ~30-40%
-- Preservation of historical content: ~100%
-- Removal of promotional content: ~100%
+- **export:**  
+  - **Purpose:** Export episode data.
+  - **Details:** Extracts episodes from the database and exports them to a file in JSON or CSV format. Allows selecting specific fields to include and supports both dry-run and live export modes.
 
-### Episode Tagging
-- 729 episodes successfully tagged
-- All series properly numbered
-- No tag validation errors
+- **validate:**  
+  - **Purpose:** Validate episode tags against the taxonomy.
+  - **Details:** Checks that all episodes (or a subset via limit or GUID) have tags that conform to the taxonomy rules. Optionally generates a detailed JSON report listing any invalid or missing tags.
 
 ## Technology Stack
 
-- **Language:** Python 3.13
-- **Core Libraries:**
-  - `requests` for HTTP
+- **Language:** Python 3.13+
+- **Core Libraries:** 
+  - `requests` for HTTP operations
   - `lxml` for XML parsing
-  - `sqlite3` for database
-  - `openai` for AI integration
+  - `sqlite3` for database operations
+  - `openai` for AI-driven cleaning and tagging
   - `pytest` for testing
-- **AI Models:**
-  - GPT-4O Mini for content cleaning
-  - GPT-3.5-turbo for episode tagging
+  - `python-dotenv` for configuration management
+- **AI Integration:** GPT-4O Mini (for cleaning) and GPT-3.5-turbo (for tagging)
+- **CLI Tools:** Built-in `argparse` for command-line management
 
-## Deployment
+## Configuration & Deployment
 
-### Requirements
-- Python 3.13+
-- Virtual environment
-- `.env` file with:
-  - Feed URL
-  - OpenAI API key
-  - Database path
-- Write access for database
-
-### Monitoring
-- Logging to stdout/stderr
-- Performance metrics logging
-- Error tracking
-- Content change tracking
-- Tag validation reporting
-
-### Maintenance
-- Database backups
-- Log rotation
-- VACUUM optimization
-- Regular tag validation checks
-- Series sequence verification
+- **Environment Variables:** Use a `.env` file (based on `.env.template`) to configure variables such as `RSS_FEED_URL`, `OPENAI_API_KEY`, etc.
+- **Deployment:**  
+  - Run via the CLI (e.g., `python -m src.main` or individual CLI commands).
+  - Schedule using cron for regular updates.
+- **Logging & Monitoring:** Detailed logging to stdout/stderr and optional file logging for production; error reporting and performance tracking are built in.
