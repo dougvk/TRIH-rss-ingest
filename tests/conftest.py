@@ -1,97 +1,63 @@
 """Test configuration and fixtures."""
 import os
 import pytest
-import shutil
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
 
-@pytest.fixture(autouse=True)
-def test_env():
-    """Set up test environment.
+# Set test environment BEFORE any imports
+os.environ["APP_ENV"] = "test"
+
+@pytest.fixture
+def test_db():
+    """Use the test database copy at tests/test_episodes.db.
     
-    This fixture runs automatically for all tests and:
-    1. Sets APP_ENV to "test" to use test database
-    2. Copies production database to test database if it exists
-    3. Cleans up test database after tests
+    This uses the real database copy from production.
     """
-    # Set test environment before importing config
-    os.environ["APP_ENV"] = "test"
-    
-    # Now import config to get correct DB paths
+    # Import config here after environment is set
     from src import config
     
-    # Copy production database if it exists
-    prod_db = config.DATA_DIR / "episodes.db"
-    test_db = config.DATA_DIR / "test.db"
+    test_db_path = Path(__file__).parent / "test_episodes.db"
+    if not test_db_path.exists():
+        raise FileNotFoundError(f"Test database not found at {test_db_path}. Please copy production database first.")
     
-    if prod_db.exists() and prod_db != test_db:
-        shutil.copy2(prod_db, test_db)
+    # Set environment variable for test database
+    os.environ["TEST_DB_PATH"] = str(test_db_path)
+    
+    # Force config to reload DB_PATH
+    config.DB_PATH = test_db_path
+    
+    yield test_db_path
+
+@pytest.fixture(autouse=True)
+def openai_test_config():
+    """Configure OpenAI API for testing.
+    
+    This fixture:
+    1. Validates API key is present
+    2. Sets shorter timeouts for tests
+    3. Uses cheaper model for testing
+    4. Restores original config after tests
+    """
+    import openai
+    from src import config
+    
+    # Store original values
+    original_timeout = config.API_TIMEOUT
+    original_model = config.OPENAI_MODEL
+    
+    # Set test values
+    config.API_TIMEOUT = 10  # Shorter timeout for tests
+    config.OPENAI_MODEL = "gpt-3.5-turbo"  # Cheaper model for tests
+    
+    # Verify API key is set
+    api_key = config.get_openai_api_key()
+    if not api_key:
+        pytest.skip("OpenAI API key not configured")
+    
+    # Configure client
+    openai.api_key = api_key
     
     yield
     
-    # Clean up test database
-    if test_db.exists():
-        os.remove(test_db)
-
-@pytest.fixture
-def mock_feed():
-    """Sample RSS feed content for testing."""
-    return '''<?xml version="1.0" encoding="UTF-8"?>
-    <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
-        <channel>
-            <title>Test Podcast</title>
-            <item>
-                <title>Test Episode</title>
-                <description>Test Description</description>
-                <guid>test-123</guid>
-                <pubDate>Mon, 01 Jan 2024 12:00:00 +0000</pubDate>
-                <link>https://example.com/episode1</link>
-                <itunes:duration>3600</itunes:duration>
-                <enclosure url="https://example.com/audio1.mp3" type="audio/mpeg"/>
-            </item>
-        </channel>
-    </rss>'''
-
-@pytest.fixture
-def mock_feed_content():
-    """Create a mock RSS feed that matches the structure of the real feed."""
-    # Generate 729 episodes to match real feed count
-    items = []
-    base_date = datetime(2025, 2, 20, 0, 5, tzinfo=timezone.utc)
-    
-    for i in range(729):
-        pub_date = base_date - timedelta(days=i)
-        # Make some episodes part of a series with episode numbers
-        is_series = i % 3 == 0  # Every third episode is part of a series
-        title = f"Episode {i}: Test Title"
-        if is_series:
-            title = f"Episode {i}: (Ep {i//3 + 1}) Test Title"
-        
-        items.append(f'''
-            <item>
-                <title>{title}</title>
-                <description>Test description for episode {i}</description>
-                <guid>test-{i}</guid>
-                <pubDate>{pub_date.strftime("%a, %d %b %Y %H:%M:%S %z")}</pubDate>
-                <itunes:duration>3600</itunes:duration>
-                <enclosure url="https://example.com/episode{i}.mp3" type="audio/mpeg" length="1234567"/>
-            </item>
-        ''')
-    
-    return f'''<?xml version="1.0" encoding="UTF-8"?>
-    <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
-        <channel>
-            <title>Test Podcast Feed</title>
-            <description>Test feed description</description>
-            <language>en-us</language>
-            <pubDate>{base_date.strftime("%a, %d %b %Y %H:%M:%S %z")}</pubDate>
-            {"".join(items)}
-        </channel>
-    </rss>'''
-
-@pytest.fixture
-def mock_feed_url(requests_mock, mock_feed_content):
-    """Mock the feed URL to return our test content."""
-    test_url = "https://test.feed/episodes.rss"
-    requests_mock.get(test_url, text=mock_feed_content)
-    return test_url 
+    # Restore original values
+    config.API_TIMEOUT = original_timeout
+    config.OPENAI_MODEL = original_model 

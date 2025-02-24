@@ -1,81 +1,26 @@
 """Prompt management for episode tagging.
 
 This module handles:
-- Loading and parsing the tagging taxonomy from markdown
 - Constructing prompts for the OpenAI API
 - Validating tag formats and structures
 """
-import re
-from typing import List, Dict
+from typing import Dict, List, Union, Optional
 from pathlib import Path
 
-def load_taxonomy(taxonomy_path: Path) -> Dict[str, List[str]]:
-    """Load and parse the tagging taxonomy from a markdown file.
-    
-    Args:
-        taxonomy_path: Path to the taxonomy markdown file
-        
-    Returns:
-        Dictionary mapping category names to lists of valid tags
-    """
-    taxonomy = {
-        "Format": [
-            "Series Episodes",
-            "Standalone Episodes",
-            "RIHC Series"  # For RIHC bonus episodes
-        ],
-        "Theme": [
-            "Ancient & Classical Civilizations",
-            "Medieval & Renaissance Europe",
-            "Empire, Colonialism & Exploration",
-            "Modern Political History & Leadership",
-            "Military History & Battles",
-            "Cultural, Social & Intellectual History",
-            "Science, Technology & Economic History",
-            "Religious, Ideological & Philosophical History",
-            "Historical Mysteries, Conspiracies & Scandals",
-            "Regional & National Histories"
-        ],
-        "Track": [
-            "Roman Track",
-            "Medieval & Renaissance Track",
-            "Colonialism & Exploration Track",
-            "American History Track",
-            "Military & Battles Track",
-            "Modern Political History Track",
-            "Cultural & Social History Track",
-            "Science, Technology & Economic History Track",
-            "Religious & Ideological History Track",
-            "Historical Mysteries & Conspiracies Track",
-            "British History Track",
-            "Global Empires Track",
-            "World Wars Track",
-            "Ancient Civilizations Track",
-            "Regional Spotlight: Latin America Track",
-            "Regional Spotlight: Asia & the Middle East Track",
-            "Regional Spotlight: Europe Track",
-            "Regional Spotlight: Africa Track",
-            "Historical Figures Track",
-            "The RIHC Bonus Track",
-            "Archive Editions Track",
-            "Contemporary Issues Through History Track"
-        ]
-    }
-    return taxonomy
+from .taxonomy import taxonomy
 
-def construct_prompt(title: str, description: str, taxonomy: Dict[str, List[str]]) -> str:
+def construct_prompt(title: str, description: str) -> str:
     """Construct a prompt for the OpenAI API.
     
     Args:
         title: Episode title
         description: Episode description (cleaned)
-        taxonomy: Dictionary of valid tags by category
     """
     # Build the taxonomy section of the prompt
     taxonomy_text = "\nValid tags by category (an episode can have multiple tags from each category):\n"
-    for category, tags in taxonomy.items():
+    for category in taxonomy.categories:
         taxonomy_text += f"\n{category}:\n"
-        taxonomy_text += "\n".join(f"- {tag}" for tag in tags) + "\n"
+        taxonomy_text += "\n".join(f"- {tag}" for tag in taxonomy[category]) + "\n"
     
     # Construct the full prompt
     prompt = f"""You are a history podcast episode tagger. Your task is to analyze this episode and assign ALL relevant tags from the taxonomy below.
@@ -122,39 +67,4 @@ For part 3 of a series about Napoleon:
 Return tags in this exact JSON format:
 {{"Format": ["tag1", "tag2"], "Theme": ["tag1", "tag2"], "Track": ["tag1", "tag2"], "episode_number": number_or_null}}
 """
-    return prompt
-
-def validate_tags(tags: Dict[str, List[str]], taxonomy: Dict[str, List[str]]) -> bool:
-    """Validate that tags conform to the taxonomy.
-    
-    Args:
-        tags: Dictionary of assigned tags by category
-        taxonomy: Dictionary of valid tags by category
-        
-    Returns:
-        True if tags are valid, False otherwise
-    """
-    # Check all required categories exist
-    required_categories = {"Format", "Theme", "Track"}
-    if not all(category in tags for category in required_categories):
-        return False
-        
-    # Check episode_number exists and is either a number or null
-    if "episode_number" not in tags:
-        return False
-    if tags["episode_number"] is not None and not isinstance(tags["episode_number"], (int, float)):
-        return False
-        
-    # Check all categories exist in taxonomy
-    if not all(category in taxonomy for category in tags if category != "episode_number"):
-        return False
-        
-    # Check all tags are valid for their categories
-    for category, tag_list in tags.items():
-        if category == "episode_number":
-            continue
-        valid_tags = taxonomy[category]
-        if not all(tag in valid_tags for tag in tag_list):
-            return False
-            
-    return True 
+    return prompt 

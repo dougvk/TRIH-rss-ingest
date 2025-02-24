@@ -19,6 +19,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Generator, List, Optional
+from pathlib import Path
 
 from src import config
 from src.models import Episode
@@ -59,8 +60,11 @@ def convert_datetime(s: bytes) -> datetime:
 sqlite3.register_adapter(datetime, adapt_datetime)
 sqlite3.register_converter("timestamp", convert_datetime)
 
-def init_db() -> None:
+def init_db(db_path: Optional[Path] = None) -> None:
     """Initialize the database and create tables if they don't exist.
+    
+    Args:
+        db_path: Optional path to database file. If not provided, uses config.DB_PATH.
     
     Creates or updates:
         - episodes table with all required fields
@@ -69,6 +73,13 @@ def init_db() -> None:
         - Cleaning status index for content processing
         - Tags index for efficient tag-based queries
     """
+    # Set database path
+    if db_path:
+        config.DB_PATH = db_path
+        
+        # Ensure parent directory exists
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+    
     with get_connection() as conn:
         # First create table if it doesn't exist with base columns
         conn.execute('''

@@ -117,12 +117,6 @@ def setup_parser() -> argparse.ArgumentParser:
         "--guid",
         help="Process a single episode by GUID"
     )
-    tag_parser.add_argument(
-        "--taxonomy",
-        type=Path,
-        default=Path("src/tagging/Tagging-Episodes-Framework.md"),
-        help="Path to taxonomy markdown file"
-    )
     
     # Export command
     export_parser = subparsers.add_parser("export", help="Export episode data")
@@ -207,8 +201,7 @@ def clean_content(
 def tag_content(
     dry_run: bool = False,
     limit: Optional[int] = None,
-    guid: Optional[str] = None,
-    taxonomy_path: Optional[Path] = None
+    guid: Optional[str] = None
 ) -> bool:
     """Tag episodes with taxonomy.
     
@@ -216,19 +209,11 @@ def tag_content(
         dry_run: If True, don't save changes
         limit: Maximum episodes to process
         guid: Process single episode by GUID
-        taxonomy_path: Path to taxonomy file
         
     Returns:
         True if successful, False if failed
     """
     try:
-        if not taxonomy_path:
-            taxonomy_path = Path("src/tagging/Tagging-Episodes-Framework.md")
-            
-        if not taxonomy_path.exists():
-            logger.error("Taxonomy file not found: %s", taxonomy_path)
-            return False
-            
         if guid:
             # Tag single episode
             from src.storage import get_episode
@@ -237,9 +222,8 @@ def tag_content(
                 logger.error("Episode not found: %s", guid)
                 return False
                 
-            from src.tagging.prompt import load_taxonomy
-            taxonomy = load_taxonomy(taxonomy_path)
-            tags = tag_episode(episode, taxonomy, dry_run)
+            from src.tagging.tagger import tag_episode
+            tags = tag_episode(episode, dry_run)
             
             if tags:
                 logger.info("Successfully tagged episode %s", guid)
@@ -247,8 +231,8 @@ def tag_content(
             return False
         else:
             # Tag multiple episodes
-            results = tag_episodes(
-                taxonomy_path=taxonomy_path,
+            from src.tagging.processor import process_episodes
+            results = process_episodes(
                 limit=limit,
                 dry_run=dry_run
             )
@@ -334,7 +318,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     elif args.command == "clean":
         success = clean_content(args.dry_run, args.limit, args.guid)
     elif args.command == "tag":
-        success = tag_content(args.dry_run, args.limit, args.guid, args.taxonomy)
+        success = tag_content(args.dry_run, args.limit, args.guid)
     elif args.command == "export":
         success = export_data(args.output)
     else:

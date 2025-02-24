@@ -23,15 +23,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Environment
-ENV = os.getenv("APP_ENV", "production")  # Default to production if not set
+APP_ENV = os.getenv("APP_ENV", "production")  # Default to production if not set
 
 # Base paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 
 # Database paths
-if ENV == "test":
-    DB_PATH = DATA_DIR / "test.db"
+if APP_ENV == "test":
+    DB_PATH = Path(os.getenv("TEST_DB_PATH", DATA_DIR / "test.db"))
     logger = logging.getLogger(__name__)
     logger.info("Using test database: %s", DB_PATH)
 else:

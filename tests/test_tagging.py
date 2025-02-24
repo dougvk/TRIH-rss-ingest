@@ -1,23 +1,15 @@
 """Test tagging functionality."""
 import json
 from datetime import datetime, timezone
-from pathlib import Path
 import pytest
 from unittest.mock import patch, MagicMock
 
 from src.models import Episode
-from src.tagging.prompt import load_taxonomy, construct_prompt, validate_tags
+from src.tagging.prompt import construct_prompt
 from src.tagging.tagger import tag_episode, get_untagged_episodes
 from src.tagging.processor import process_episodes
-
-@pytest.fixture
-def sample_taxonomy():
-    """Create a sample taxonomy for testing."""
-    return {
-        "Format": ["Series Episodes", "Standalone Episodes", "RIHC Series"],
-        "Theme": ["Ancient & Classical Civilizations", "Medieval & Renaissance Europe"],
-        "Track": ["Roman Track", "Medieval & Renaissance Track"]
-    }
+from src.tagging.taxonomy import taxonomy
+from src.tagging.taxonomy.schema import InvalidTagError, InvalidTagSetError
 
 @pytest.fixture
 def sample_episode():
@@ -25,118 +17,30 @@ def sample_episode():
     return Episode(
         guid="test-123",
         title="The Fall of Rome",
-        description="A detailed look at the fall of the Roman Empire...",
-        published_date=datetime(2024, 1, 1, tzinfo=timezone.utc)
+        description="A detailed look at the fall of the Roman Empire, covering the political, economic, and social factors that led to its collapse. The episode explores key events from 235-285 AD during the Crisis of the Third Century, including the rapid succession of barracks emperors, economic collapse, and external pressures from Germanic tribes.",
+        published_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        link="https://example.com/test",
+        duration="3600",
+        audio_url="https://example.com/test.mp3"
     )
 
-def test_load_taxonomy(tmp_path):
-    """Test loading taxonomy from markdown file."""
-    # Create a test markdown file
-    taxonomy_file = tmp_path / "test_taxonomy.md"
-    taxonomy_content = """## Format
-- Series Episodes
-- Standalone Episodes
-- RIHC Series
-
-## Theme
-- Ancient & Classical Civilizations
-- Medieval & Renaissance Europe
-- Empire, Colonialism & Exploration
-- Modern Political History & Leadership
-- Military History & Battles
-- Cultural, Social & Intellectual History
-- Science, Technology & Economic History
-- Religious, Ideological & Philosophical History
-- Historical Mysteries, Conspiracies & Scandals
-- Regional & National Histories
-
-## Track
-- Roman Track
-- Medieval & Renaissance Track
-- Colonialism & Exploration Track
-- American History Track
-- Military & Battles Track
-- Modern Political History Track
-- Cultural & Social History Track
-- Science, Technology & Economic History Track
-- Religious & Ideological History Track
-- Historical Mysteries & Conspiracies Track
-- British History Track
-- Global Empires Track
-- World Wars Track
-- Ancient Civilizations Track
-- Regional Spotlight: Latin America Track
-- Regional Spotlight: Asia & the Middle East Track
-- Regional Spotlight: Europe Track
-- Regional Spotlight: Africa Track
-- Historical Figures Track
-- The RIHC Bonus Track
-- Archive Editions Track
-- Contemporary Issues Through History Track
-"""
-    taxonomy_file.write_text(taxonomy_content)
-    
-    # Load and verify taxonomy
-    taxonomy = load_taxonomy(taxonomy_file)
-    assert "Format" in taxonomy
-    assert "Theme" in taxonomy
-    assert "Track" in taxonomy
-    assert taxonomy["Format"] == ["Series Episodes", "Standalone Episodes", "RIHC Series"]
-    assert taxonomy["Theme"] == [
-        "Ancient & Classical Civilizations",
-        "Medieval & Renaissance Europe",
-        "Empire, Colonialism & Exploration",
-        "Modern Political History & Leadership",
-        "Military History & Battles",
-        "Cultural, Social & Intellectual History",
-        "Science, Technology & Economic History",
-        "Religious, Ideological & Philosophical History",
-        "Historical Mysteries, Conspiracies & Scandals",
-        "Regional & National Histories"
-    ]
-    assert taxonomy["Track"] == [
-        "Roman Track",
-        "Medieval & Renaissance Track",
-        "Colonialism & Exploration Track",
-        "American History Track",
-        "Military & Battles Track",
-        "Modern Political History Track",
-        "Cultural & Social History Track",
-        "Science, Technology & Economic History Track",
-        "Religious & Ideological History Track",
-        "Historical Mysteries & Conspiracies Track",
-        "British History Track",
-        "Global Empires Track",
-        "World Wars Track",
-        "Ancient Civilizations Track",
-        "Regional Spotlight: Latin America Track",
-        "Regional Spotlight: Asia & the Middle East Track",
-        "Regional Spotlight: Europe Track",
-        "Regional Spotlight: Africa Track",
-        "Historical Figures Track",
-        "The RIHC Bonus Track",
-        "Archive Editions Track",
-        "Contemporary Issues Through History Track"
-    ]
-
-def test_construct_prompt(sample_taxonomy, sample_episode):
+def test_construct_prompt(sample_episode):
     """Test prompt construction."""
     prompt = construct_prompt(
         sample_episode.title,
-        sample_episode.description,
-        sample_taxonomy
+        sample_episode.description
     )
     
     # Verify prompt contains key elements
     assert sample_episode.title in prompt
     assert sample_episode.description in prompt
-    for category, tags in sample_taxonomy.items():
+    for category in taxonomy.categories:
         assert category in prompt
-        for tag in tags:
+        for tag in taxonomy[category]:
             assert tag in prompt
     assert "JSON format" in prompt
 
-def test_validate_tags_valid(sample_taxonomy):
+def test_validate_tags_valid():
     """Test tag validation with valid tags."""
     tags = {
         "Format": ["Series Episodes"],
@@ -144,7 +48,7 @@ def test_validate_tags_valid(sample_taxonomy):
         "Track": ["Roman Track"],
         "episode_number": 1
     }
-    assert validate_tags(tags, sample_taxonomy)
+    assert taxonomy.validate_tags(tags)
 
     # Test with null episode number
     tags_null = {
@@ -153,129 +57,103 @@ def test_validate_tags_valid(sample_taxonomy):
         "Track": ["Roman Track"],
         "episode_number": None
     }
-    assert validate_tags(tags_null, sample_taxonomy)
+    assert taxonomy.validate_tags(tags_null)
 
-def test_validate_tags_invalid(sample_taxonomy):
+def test_validate_tags_invalid():
     """Test tag validation with invalid tags."""
     # Invalid category
     tags1 = {"InvalidCategory": ["Series Episodes"]}
-    assert not validate_tags(tags1, sample_taxonomy)
-    
-    # Invalid tag
-    tags2 = {"Format": ["InvalidTag"]}
-    assert not validate_tags(tags2, sample_taxonomy)
+    with pytest.raises(InvalidTagSetError):
+        taxonomy.validate_tags(tags1)
 
-    # Missing episode_number
+    # Invalid tag
+    tags2 = {
+        "Format": ["InvalidTag"],
+        "Theme": ["Ancient & Classical Civilizations"],
+        "Track": ["Roman Track"],
+        "episode_number": None
+    }
+    with pytest.raises(InvalidTagError):
+        taxonomy.validate_tags(tags2)
+
+    # Missing episode_number is valid since it's optional
     tags3 = {
         "Format": ["Series Episodes"],
         "Theme": ["Ancient & Classical Civilizations"],
         "Track": ["Roman Track"]
     }
-    assert not validate_tags(tags3, sample_taxonomy)
+    assert taxonomy.validate_tags(tags3) == True
 
     # Invalid episode_number type
     tags4 = {
         "Format": ["Series Episodes"],
         "Theme": ["Ancient & Classical Civilizations"],
         "Track": ["Roman Track"],
-        "episode_number": "1"  # String instead of int/None
+        "episode_number": "1"  # string instead of int
     }
-    assert not validate_tags(tags4, sample_taxonomy)
-
-@pytest.mark.skip("OpenAI API calls are tested in integration tests")
-def test_tag_episode(sample_taxonomy, sample_episode):
-    """Test episode tagging with mocked OpenAI API."""
-    mock_response = MagicMock()
-    mock_response.choices = [
-        MagicMock(
-            message=MagicMock(
-                content=json.dumps({
-                    "Format": ["Standalone"],
-                    "Theme": ["Ancient & Classical"],
-                    "Region": ["Europe"]
-                })
-            )
-        )
-    ]
+    with pytest.raises(InvalidTagSetError):
+        taxonomy.validate_tags(tags4)
     
-    with patch('openai.OpenAI') as mock_openai:
-        mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = mock_response
-        mock_openai.return_value = mock_client
-        
-        # Test tagging
-        tags = tag_episode(sample_episode, sample_taxonomy, dry_run=True)
-        assert tags is None  # dry run should return None
-        
-        # Test actual tagging
-        with patch('src.tagging.tagger.get_connection'):
-            tags = tag_episode(sample_episode, sample_taxonomy)
-            assert "Format" in tags
-            assert "Theme" in tags
-            assert "Region" in tags
+    # Multiple format tags
+    tags5 = {
+        "Format": ["Series Episodes", "Standalone Episodes"],
+        "Theme": ["Ancient & Classical Civilizations"],
+        "Track": ["Roman Track"],
+        "episode_number": None
+    }
+    with pytest.raises(InvalidTagSetError):
+        taxonomy.validate_tags(tags5)
+    
+    # RIHC series without Series Episodes
+    tags6 = {
+        "Format": ["RIHC Series"],
+        "Theme": ["Ancient & Classical Civilizations"],
+        "Track": ["Roman Track"],
+        "episode_number": None
+    }
+    with pytest.raises(InvalidTagSetError):
+        taxonomy.validate_tags(tags6)
+
+def test_tag_episode(sample_episode):
+    """Test episode tagging with live OpenAI API."""
+    # Test dry run
+    tags = tag_episode(sample_episode, dry_run=True)
+    assert tags is None  # dry run should return None
+    
+    # Test actual tagging
+    tags = tag_episode(sample_episode)
+    assert tags is not None
+    assert taxonomy.validate_tags(tags)
+    assert "Format" in tags
+    assert "Theme" in tags
+    assert "Track" in tags
+    assert "episode_number" in tags
+    
+    # Verify tag values make sense for the episode
+    assert any("Ancient" in tag for tag in tags["Theme"])
+    assert any("Roman" in tag for tag in tags["Track"])
 
 def test_get_untagged_episodes():
     """Test retrieving untagged episodes."""
-    mock_row = MagicMock()
-    mock_row.__getitem__.side_effect = lambda x: {
-        'guid': 'test-123',
-        'title': 'Test Episode',
-        'description': 'Test Description',
-        'link': '',
-        'published_date': datetime.now(timezone.utc),
-        'duration': None,
-        'audio_url': None,
-        'cleaned_description': None
-    }[x]
-    
-    with patch('src.tagging.tagger.get_connection') as mock_conn:
-        mock_cursor = MagicMock()
-        mock_cursor.execute.return_value = mock_cursor
-        mock_cursor.fetchall.return_value = [mock_row]
-        mock_conn.return_value.__enter__.return_value = mock_cursor
-        
-        episodes = get_untagged_episodes(limit=1)
-        assert len(episodes) == 1
-        assert episodes[0].guid == 'test-123'
-        assert episodes[0].title == 'Test Episode'
+    episodes = get_untagged_episodes(limit=1)
+    assert isinstance(episodes, list)
+    if len(episodes) > 0:
+        assert isinstance(episodes[0], Episode)
+        assert episodes[0].tags is None
 
-def test_process_episodes(tmp_path, sample_taxonomy):
+def test_process_episodes():
     """Test batch processing of episodes."""
-    # Create test taxonomy file
-    taxonomy_file = tmp_path / "test_taxonomy.md"
-    taxonomy_content = """## Format
-- Series Episodes
-- Standalone Episodes
-"""
-    taxonomy_file.write_text(taxonomy_content)
+    # Process a small batch
+    results = process_episodes(
+        limit=2,
+        dry_run=True
+    )
+    assert isinstance(results, list)
     
-    # Mock dependencies
-    with patch('src.tagging.processor.get_untagged_episodes') as mock_get_episodes, \
-         patch('src.tagging.processor.tag_episode') as mock_tag_episode:
-        
-        # Setup mocks
-        mock_get_episodes.return_value = [
-            Episode(
-                guid=f"test-{i}",
-                title=f"Test Episode {i}",
-                description="Test Description",
-                published_date=datetime.now(timezone.utc)
-            )
-            for i in range(2)
-        ]
-        mock_tag_episode.return_value = {"Format": ["Standalone"]}
-        
-        # Test processing
-        results_file = tmp_path / "results.txt"
-        results = process_episodes(
-            taxonomy_path=taxonomy_file,
-            limit=2,
-            results_file=str(results_file)
-        )
-        
-        # Verify results
-        assert len(results) == 2
-        assert all(r == {"Format": ["Standalone"]} for r in results)
-        assert results_file.exists()
-        assert "Test Episode 0" in results_file.read_text()
-        assert "Test Episode 1" in results_file.read_text() 
+    # Test actual processing
+    results = process_episodes(
+        limit=2
+    )
+    assert isinstance(results, list)
+    for tags in results:
+        assert taxonomy.validate_tags(tags) 

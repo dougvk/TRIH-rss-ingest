@@ -72,10 +72,11 @@ def extract_episode_number(title: str) -> Optional[int]:
     return None
 
 def fetch_rss_feed() -> str:
-    """Fetch RSS feed content from configured URL.
+    """Fetch RSS feed content from configured URL or local file.
     
     This function handles:
         - HTTP GET requests with timeouts
+        - Local file reading
         - Response validation
         - Error handling for network issues
     
@@ -85,6 +86,7 @@ def fetch_rss_feed() -> str:
     Raises:
         requests.RequestException: If network request fails
         ValueError: If feed URL is not configured
+        FileNotFoundError: If local file doesn't exist
         
     Example:
         >>> content = fetch_rss_feed()
@@ -93,7 +95,16 @@ def fetch_rss_feed() -> str:
     url = config.get_feed_url()
     if not url:
         raise ValueError("RSS feed URL not configured")
-        
+    
+    # Handle local files
+    if not url.startswith(('http://', 'https://')):
+        try:
+            with open(url, 'r', encoding='utf-8') as f:
+                return f.read()
+        except FileNotFoundError:
+            raise FileNotFoundError(f"RSS feed file not found: {url}")
+    
+    # Handle remote URLs
     response = requests.get(url, timeout=config.FEED_FETCH_TIMEOUT)
     response.raise_for_status()
     
